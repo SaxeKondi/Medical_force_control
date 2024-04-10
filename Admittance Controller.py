@@ -21,8 +21,6 @@ def admittance(target_force, wrench, des_vel, des_acc, des_pos, rot_align, curre
     Xe = desired end effector position based on controller response to external force (surface normal) in TOOL FRAME
     '''
 
-
-
     m1 = 1
     m2 = 1
     k1 = 1

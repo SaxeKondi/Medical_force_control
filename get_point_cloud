@@ -1,0 +1,31 @@
+import open3d as o3d
+import numpy as np
+
+# Load OBJ file
+mesh = o3d.io.read_triangle_mesh("scene/meshes/phantom/phantom.obj")
+
+# Convert to point cloud
+point_cloud = mesh.sample_points_uniformly(number_of_points=10000)
+
+point_cloud.estimate_normals()
+
+print(np.asarray(point_cloud.normals))
+
+# Visualize the point cloud
+# o3d.visualization.draw_geometries([point_cloud])
+
+
+#################################
+# New point with unknown normal #
+#################################
+# Point of interest (replace with your desired point)
+point_of_interest = np.array([0.0, 0.0, 0.0])
+
+# Define search parameters (adjust radius as needed)
+search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30)
+
+# Estimate normals at the point of interest
+_, indices, _ = point_cloud.search_knn_vector_3d(point_of_interest, 1)
+normal_at_point = np.asarray(point_cloud.normals)[indices[0], :]
+
+print("Normal at point of interest:", normal_at_point)
