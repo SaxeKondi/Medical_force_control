@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-# from colect_sim.controller.operational_space_controller import ParallelForcePositionController, AdmittanceController, OperationalSpaceController, TargetType
+from colect_sim.controller.operational_space_controller import ParallelForcePositionController, AdmittanceController, OperationalSpaceController, TargetType
 from colect_sim.env.mujoco_env import MujocoEnv
 from colect_sim.utils.mujoco_utils import MujocoModelNames
 from mujoco import viewer
@@ -57,7 +57,7 @@ class UR5Env(MujocoEnv):
         self.init_ctrl = self.data.ctrl.copy()
 
         self.model_names = MujocoModelNames(self.model) 
-        """
+        
         self.invdyn_controller = OperationalSpaceController(
             model=self.model, 
             data=self.data, 
@@ -149,13 +149,13 @@ class UR5Env(MujocoEnv):
             kd=[3, 3, 3, 8, 8, 8],
             control_period=self.model.opt.timestep,
         )
-        """
-        # self.pf_controller.Kp_f = np.eye(3)
-        # self.pf_controller.Kv_f = np.eye(3)
-        # self.pf_controller.Kp_p = np.eye(3)
-        # self.pf_controller.Kd_p = np.eye(3)
+        
+        self.pf_controller.Kp_f = np.eye(3)
+        self.pf_controller.Kv_f = np.eye(3)
+        self.pf_controller.Kp_p = np.eye(3)
+        self.pf_controller.Kd_p = np.eye(3)
 
-        # self.controller = self.invdyn_controller
+        self.controller = self.invdyn_controller
 
         self.init_qpos_config = {
             "shoulder_pan_joint": np.pi / 2.0,

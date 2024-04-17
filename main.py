@@ -3,13 +3,9 @@ import numpy as np
 from colect_sim.env.ur5_env import UR5Env
 from colect_sim.utils.traj_generation import linear_traj_w_gauss_noise
 
+from robot.robot_control import Robot 
+
 def main() -> None:
-  sim = MJ()
-  sim.run()
-
-if __name__ == "__main__":
-  main()
-
   env = UR5Env()
 
   quat = np.array([0,1,0,1])
@@ -29,3 +25,6 @@ if __name__ == "__main__":
       env.enable_recording = True # inelegant, but works for aligning the recording to the target
       i += 1
       if i > len(traj) - 1 : terminated = True
+
+if __name__ == "__main__":
+  main()

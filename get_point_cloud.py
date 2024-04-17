@@ -52,7 +52,7 @@ print("Dimensions of the object (width, height, depth):", dimensions)
 #################
 # Visualization #
 #################
-visu = False
+visu = True
 if visu:
     # Visualization
     visualizer = o3d.visualization.Visualizer()

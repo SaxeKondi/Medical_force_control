@@ -14,7 +14,6 @@ class MJ:
   def __init__(self):
     self.m = mujoco.MjModel.from_xml_path('scene/scene.xml')
     self.d = mujoco.MjData(self.m)
-    print(self.d.get_body_xpos('softbody'))
     self._data_lock = Lock()
     self.robot = Robot(m=self.m,d=self.d)
     
