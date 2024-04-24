@@ -1,9 +1,7 @@
-from simulation.simulator import MJ
 import numpy as np
 from colect_sim.env.ur5_env import UR5Env
 from colect_sim.utils.traj_generation import linear_traj_w_gauss_noise
 
-from robot.robot_control import Robot 
 
 def main() -> None:
   env = UR5Env()
@@ -19,6 +17,8 @@ def main() -> None:
   # x = 0.2
   # y = 
   # z = 0.5
+
+  
 
   i = 0
   terminated = False
