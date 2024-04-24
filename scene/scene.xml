@@ -1,7 +1,7 @@
 <mujoco model="ur5e scene">
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
   
-  <option integrator="implicitfast" timestep="0.001"/>
+  <option integrator="implicitfast" timestep="0.001" gravity="0 0 0"/>
 
   <extension>
     <plugin plugin="mujoco.elasticity.solid"/>

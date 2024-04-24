@@ -1,5 +1,4 @@
 import numpy as np
-import roboticstoolbox as rtb
 
 from enum import Enum
 from colect_sim.controller.joint_effort_controller import JointEffortController
@@ -7,7 +6,7 @@ from colect_sim.controller.joint_velocity_controller import JointVelocityControl
 from colect_sim.controller.joint_position_controller import JointPositionController
 from colect_sim.utils.mujoco_utils import get_site_jac, get_fullM
 from colect_sim.utils.transform_utils import mat2quat
-from colect_sim.utils.controller_utils import task_space_inertia_matrix, pose_error
+from colect_sim.utils.controller_utils import task_space_inertia_matrix, pose_error, get_rot_angle
 from colect_sim.utils.mujoco_utils import MujocoModelNames
 from colect_sim.utils.pid_controller_utils import SpatialPIDController
 from mujoco import MjModel, MjData
@@ -120,6 +119,25 @@ class OperationalSpaceController(JointEffortController):
         # Initialize the task space control signal (desired end-effector motion).
         u_task = np.zeros(6)
 
+
+
+        self.ft_sensor_site = "eef_site"
+        self.ft_site_id = self.model_names.site_name2id[self.ft_sensor_site]
+        # Get the orientation matrix of the force-torque (FT) sensor
+        ft_ori_mat = self.data.site_xmat[self.ft_site_id].reshape(3, 3)
+        
+        force = self.data.sensordata[:3] #only forces
+        # Transform the force and torque from the sensor frame to the world frame
+        force = ft_ori_mat @ force
+        
+        print("The wrench is: ", force)
+
+        with open('wrench_data.txt', 'a') as file:
+            np.savetxt(file, [force], fmt='%f')  # fmt
+
+
+
+
         if self.target_type == TargetType.POSE:
             # If the target type is pose, the target contains both position and orientation.
             target_pose = target
@@ -183,7 +201,7 @@ class OperationalSpaceController(JointEffortController):
         else:
             return False
 
-class AdmittanceController(JointPositionController):
+class AdmittanceController(OperationalSpaceController):
     def __init__(
         self,
         model: MjModel,
@@ -200,6 +218,7 @@ class AdmittanceController(JointPositionController):
         start_ft = np.array([0, 0, 0, 0, 0, 0]), 
         start_q = np.array([0, 0, 0, 0, 0, 0]),
         singularity_avoidance: bool = False,
+        
     ) -> None:
         super().__init__(
             model, 
@@ -207,9 +226,16 @@ class AdmittanceController(JointPositionController):
             model_names, 
             eef_name, 
             joint_names, 
-            actuator_names, 
+            actuator_names,
             min_effort, 
-            max_effort, 
+            max_effort,
+            target_type=TargetType.POSE,
+            kp=400.0,
+            ko=200.0,
+            kv=50.0,
+            vmax_xyz=2,
+            vmax_abg=2,
+            null_damp_kv=10,
         )
         
         self.target_tol = 0.0075
@@ -240,7 +266,9 @@ class AdmittanceController(JointPositionController):
         self.vely = 0
         self.velz = 0
 
+        print(self.data.xpos[self.eef_id])
         self.Xc = self.data.site_xpos[self.eef_id] # MAYBE end-effector is not the correct position we want here
+        print(self.Xc)
         
         self.Xex = 0
         self.Xey = 0
@@ -248,34 +276,37 @@ class AdmittanceController(JointPositionController):
         self.wrench = start_ft[:3]
 
         self.target_force = 5
-        self.probe_in_contact = False
+        self.probe_in_contact = True
 
 
-    def admitance(self):
+    def admittance(self):
         if self.probe_in_contact :  # You need some condition to break the loop
+            wrench = self.data.sensordata #only forces
+            print("The wrench is: ", wrench)
 
-            wrench = self.robot._d.sensordata[:3] #only forces
-            TCP_R = self.robot.get_rotation()
-            print(wrench)
+
+            self.force_id = self.model_names.sensor_name2id["eef_force"]
+            self.force_adr = self.model.sensor_adr[self.force_id]
+            force = self.data.sensordata[self.force_adr : self.force_adr + 3]
+            print(force)
+
+            return [0, 0, 0]
+            TCP_R = 0
+            
 
             rot_align = (self.directionToNormal(TCP_R, wrench))
 
             M = rot_align @ self.M_prev #update gains based on orientation function
             K = rot_align @ self.K_prev
             D = rot_align @ self.D_prev
-
-            
-            # M = M_prev #update gains based on orientation function
-            # K = K_prev
-            # D = D_prev
             
             # Step 1: Calculate acceleration
-            Xd = np.copy(Xc) + np.array([0.01, 0.01, 0])
+            Xd = np.copy(self.Xc) + np.array([0.01, 0.01, 0])
 
             if self.first_iteration:
-                Xd = Xc
+                Xd = self.Xc
             
-            pos_error = Xc - Xd
+            pos_error = self.Xc - Xd
             
             print("Type of wrench:", wrench)
             print("Type of target force:", self.target_force)
@@ -303,12 +334,13 @@ class AdmittanceController(JointPositionController):
             Xcx = Xex + Xd[0]
             Xcy = Xez + Xd[1]
             Xcz = Xey + Xd[2]
-            Xc = [Xcx, Xcy, Xcz]
+            self.Xc = [Xcx, Xcy, Xcz]
             self.first_iteration = False
             # Exit condition in case force readings are lower than a threshold (contact lost)
             # if wrench >= [0,0,0]:
             #     break
-        return self.tool_to_base(Xc)
+            print(self.Xc)
+        return self.tool_to_base(self.Xc)
 
 
     def int_acc(acc, vel, dt):
@@ -376,7 +408,7 @@ class AdmittanceController(JointPositionController):
     ) -> None:
         
         # TODO: INSERT MAGICAL CODE HERE
-        self.admitance()
+        u = self.admittance()
 
         # Call the parent class's run method to apply the computed joint efforts to the robot actuators.
         super().run(u, ctrl)  

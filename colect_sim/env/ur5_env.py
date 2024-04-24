@@ -156,6 +156,7 @@ class UR5Env(MujocoEnv):
         self.pf_controller.Kd_p = np.eye(3)
 
         self.controller = self.invdyn_controller
+        # self.controller = self.adm_controller
 
         self.init_qpos_config = {
             "shoulder_pan_joint": np.pi / 2.0,
