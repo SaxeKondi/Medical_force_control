@@ -276,70 +276,65 @@ class AdmittanceController(OperationalSpaceController):
         self.wrench = start_ft[:3]
 
         self.target_force = 5
-        self.probe_in_contact = True
 
 
     def admittance(self):
-        if self.probe_in_contact :  # You need some condition to break the loop
-            wrench = self.data.sensordata #only forces
-            print("The wrench is: ", wrench)
+        # Get the orientation matrix of the force-torque (FT) sensor
+        ft_ori_mat = self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3, 3)
+        
+        force = self.data.sensordata[:3] #only forces
+        # Transform the force and torque from the sensor frame to the world frame
+        force = ft_ori_mat @ force
 
+        TCP_R = 0
+        
 
-            self.force_id = self.model_names.sensor_name2id["eef_force"]
-            self.force_adr = self.model.sensor_adr[self.force_id]
-            force = self.data.sensordata[self.force_adr : self.force_adr + 3]
-            print(force)
+        rot_align = (self.directionToNormal(TCP_R, force))
 
-            return [0, 0, 0]
-            TCP_R = 0
-            
+        M = rot_align @ self.M_prev #update gains based on orientation function
+        K = rot_align @ self.K_prev
+        D = rot_align @ self.D_prev
+        
+        # Step 1: Calculate acceleration
+        Xd = np.copy(self.Xc) + np.array([0.01, 0.01, 0])
 
-            rot_align = (self.directionToNormal(TCP_R, wrench))
+        if self.first_iteration:
+            Xd = self.Xc
+        
+        pos_error = self.Xc - Xd
+        
+        print("Type of wrench:", wrench)
+        print("Type of target force:", self.target_force)
+        print("Type of vel:", velx)
+        print("Type of pos errr:", pos_error)
+        print("Type of K:", K)
+        print("Type of D:", D)
+        print("Type of M:", M)
 
-            M = rot_align @ self.M_prev #update gains based on orientation function
-            K = rot_align @ self.K_prev
-            D = rot_align @ self.D_prev
-            
-            # Step 1: Calculate acceleration
-            Xd = np.copy(self.Xc) + np.array([0.01, 0.01, 0])
-
-            if self.first_iteration:
-                Xd = self.Xc
-            
-            pos_error = self.Xc - Xd
-            
-            print("Type of wrench:", wrench)
-            print("Type of target force:", self.target_force)
-            print("Type of vel:", velx)
-            print("Type of pos errr:", pos_error)
-            print("Type of K:", K)
-            print("Type of D:", D)
-            print("Type of M:", M)
-
-            accx = np.linalg.inv(M) @ (wrench + self.target_force - D @ velx - K @ pos_error[0])
-            accy = np.linalg.inv(M) @ (wrench + self.target_force - D @ vely - K @ pos_error[1])
-            accz = np.linalg.inv(M) @ (wrench + self.target_force - D @ velz - K @ pos_error[2])
-            
-            # Step 2: Integrate acceleration to get velocity
-            velx = self.int_acc(accx, velx, self.dt)
-            vely = self.int_acc(accy, vely, self.dt)
-            velz = self.int_acc(accz, velz, self.dt)
-            
-            # Step 3: Integrate velocity to get position
-            Xex = self.int_vel(velx, Xex, self.dt)
-            Xey = self.int_vel(vely, Xey, self.dt)
-            Xez = self.int_vel(velz, Xez, self.dt)
-            
-            # Step 4: Update current position
-            Xcx = Xex + Xd[0]
-            Xcy = Xez + Xd[1]
-            Xcz = Xey + Xd[2]
-            self.Xc = [Xcx, Xcy, Xcz]
-            self.first_iteration = False
-            # Exit condition in case force readings are lower than a threshold (contact lost)
-            # if wrench >= [0,0,0]:
-            #     break
-            print(self.Xc)
+        accx = np.linalg.inv(M) @ (wrench + self.target_force - D @ velx - K @ pos_error[0])
+        accy = np.linalg.inv(M) @ (wrench + self.target_force - D @ vely - K @ pos_error[1])
+        accz = np.linalg.inv(M) @ (wrench + self.target_force - D @ velz - K @ pos_error[2])
+        
+        # Step 2: Integrate acceleration to get velocity
+        velx = self.int_acc(accx, velx, self.dt)
+        vely = self.int_acc(accy, vely, self.dt)
+        velz = self.int_acc(accz, velz, self.dt)
+        
+        # Step 3: Integrate velocity to get position
+        Xex = self.int_vel(velx, Xex, self.dt)
+        Xey = self.int_vel(vely, Xey, self.dt)
+        Xez = self.int_vel(velz, Xez, self.dt)
+        
+        # Step 4: Update current position
+        Xcx = Xex + Xd[0]
+        Xcy = Xez + Xd[1]
+        Xcz = Xey + Xd[2]
+        self.Xc = [Xcx, Xcy, Xcz]
+        self.first_iteration = False
+        # Exit condition in case force readings are lower than a threshold (contact lost)
+        # if wrench >= [0,0,0]:
+        #     break
+        print(self.Xc)
         return self.tool_to_base(self.Xc)
 
 
