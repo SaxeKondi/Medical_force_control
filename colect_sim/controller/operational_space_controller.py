@@ -121,19 +121,21 @@ class OperationalSpaceController(JointEffortController):
 
 
 
-        self.ft_sensor_site = "eef_site"
-        self.ft_site_id = self.model_names.site_name2id[self.ft_sensor_site]
-        # Get the orientation matrix of the force-torque (FT) sensor
-        ft_ori_mat = self.data.site_xmat[self.ft_site_id].reshape(3, 3)
-        
-        force = self.data.sensordata[:3] #only forces
-        # Transform the force and torque from the sensor frame to the world frame
-        force = ft_ori_mat @ force
-        
-        print("The wrench is: ", force)
 
-        with open('wrench_data.txt', 'a') as file:
-            np.savetxt(file, [force], fmt='%f')  # fmt
+
+
+        force = self.data.sensordata[:3] #only forces
+        # print("The wrench is: ", force)
+        print("The wrench is: ", self.data.geom_xpos[self.model_names.geom_name2id["floor"]])
+
+
+        # This is the tool tip position: self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
+
+
+        # with open('wrench_data.txt', 'a') as file:
+        #     np.savetxt(file, [force], fmt='%f')  # fmt
+
+
 
 
 
@@ -266,10 +268,11 @@ class AdmittanceController(OperationalSpaceController):
         self.vely = 0
         self.velz = 0
 
-        print(self.data.xpos[self.eef_id])
-        self.Xc = self.data.site_xpos[self.eef_id] # MAYBE end-effector is not the correct position we want here
+
+        self.Xc = self.data.xpos[self.model_names.body_name2id["end_effector"]] # MAYBE end-effector is not the correct position we want here
         print(self.Xc)
         
+
         self.Xex = 0
         self.Xey = 0
         self.Xez = 0
@@ -284,7 +287,7 @@ class AdmittanceController(OperationalSpaceController):
         
         force = self.data.sensordata[:3] #only forces
         # Transform the force and torque from the sensor frame to the world frame
-        force = ft_ori_mat @ force
+        # force = ft_ori_mat @ force
 
         TCP_R = 0
         
@@ -303,7 +306,7 @@ class AdmittanceController(OperationalSpaceController):
         
         pos_error = self.Xc - Xd
         
-        print("Type of wrench:", wrench)
+        print("Type of measured force:", force)
         print("Type of target force:", self.target_force)
         print("Type of vel:", velx)
         print("Type of pos errr:", pos_error)
@@ -311,9 +314,9 @@ class AdmittanceController(OperationalSpaceController):
         print("Type of D:", D)
         print("Type of M:", M)
 
-        accx = np.linalg.inv(M) @ (wrench + self.target_force - D @ velx - K @ pos_error[0])
-        accy = np.linalg.inv(M) @ (wrench + self.target_force - D @ vely - K @ pos_error[1])
-        accz = np.linalg.inv(M) @ (wrench + self.target_force - D @ velz - K @ pos_error[2])
+        accx = np.linalg.inv(M) @ (force + self.target_force - D @ velx - K @ pos_error[0])
+        accy = np.linalg.inv(M) @ (force + self.target_force - D @ vely - K @ pos_error[1])
+        accz = np.linalg.inv(M) @ (force + self.target_force - D @ velz - K @ pos_error[2])
         
         # Step 2: Integrate acceleration to get velocity
         velx = self.int_acc(accx, velx, self.dt)
@@ -355,7 +358,6 @@ class AdmittanceController(OperationalSpaceController):
 
 
     def directionToNormal(TCP_R, force):
-
         """
             Inputs: TCP rotation (3x3 matrix), force direction (3x1 vector XYZ)
             Calulates the direction the robot should turn to align with the surface normal

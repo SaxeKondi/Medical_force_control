@@ -9,8 +9,10 @@ def main() -> None:
   quat = np.array([0,1,0,1])
   quat = quat / np.linalg.norm(quat)
   # Linear scanning near one edge
-  traj_start = np.array([0.375, 0.25, 0.08,quat[0],quat[1],quat[2],quat[3]])
-  traj_stop = np.array([0.625, 0.25, -0.08,quat[0],quat[1],quat[2],quat[3]])
+  # traj_start = np.array([0.375, 0.46, 0.205,quat[0],quat[1],quat[2],quat[3]])
+  # traj_stop = np.array([0.625, 0.45, 0.205,quat[0],quat[1],quat[2],quat[3]])
+  traj_start = np.array([0.2, 0.45, 0.215,quat[0],quat[1],quat[2],quat[3]])
+  traj_stop = np.array([0.2, 0.45, 0.05,quat[0],quat[1],quat[2],quat[3]])
   traj = linear_traj_w_gauss_noise(traj_start, traj_stop, 100, 0., 0.0005)
   
   # Soft body dimensions:
