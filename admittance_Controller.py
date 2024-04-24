@@ -6,6 +6,7 @@ from robot.robot_control import Robot
 
 class Admitance:
     def __init__(self, target_force, robot:Robot, dt):
+
         '''
         INPUTS:
             target_force -> force to push against object (around 4N)
@@ -16,7 +17,7 @@ class Admitance:
             current_vel
         
         RETUNS:
-            Xc = desired end effector position based on controller response to external force (surface normal) in TOOL FRAME
+        Xc = desired end effector position based on controller response to external force (surface normal) in TOOL FRAME
         '''
         self.robot = robot
         self.dt = dt
@@ -55,15 +56,14 @@ class Admitance:
         self.Xey = 0
         self.Xez = 0
         self.wrench = [0,0,0]
-
         # Controller Loop
-        self.force = 5 # set it to 5N
+        
+        self.force = 5
         self.probe_in_contact = False
         self.target_force = target_force
 
-
     def admitance(self, pobe_in_contact):
-        if pobe_in_contact :  # You need some condition to break the loop
+        if self.probe_in_contact :  # You need some condition to break the loop
 
             wrench = self.robot._d.sensordata[:3] #only forces
             TCP_R = self.robot.get_rotation()
@@ -150,13 +150,6 @@ class Admitance:
         z_axis = np.atleast_2d([0, 0, 1]) # Axis to align with
         rot = Rotation.align_vectors(z_axis, [force_norm])[0] # Align force to z axis
         return rot.as_matrix() @ TCP_R # New rotation matrix the robot should have to be aligned.
-
-    def desired_force():
-        Kp = 1 #set by user based on stiffness
-
-        force_value = 4 * Kp #4N to keep contact on object
-
-        return force_value
 
     def tool_to_base(tool_frame):
 

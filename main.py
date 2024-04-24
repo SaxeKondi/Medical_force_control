@@ -15,6 +15,11 @@ def main() -> None:
   traj_stop = np.array([0.625, 0.45, 0.205,quat[0],quat[1],quat[2],quat[3]])
   traj = linear_traj_w_gauss_noise(traj_start, traj_stop, 100, 0., 0.0005)
   
+  # Soft body dimensions:
+  # x = 0.2
+  # y = 
+  # z = 0.5
+
   i = 0
   terminated = False
   while not terminated:
