@@ -11,7 +11,7 @@ point_cloud.estimate_normals()
 
 # print(np.asarray(point_cloud.normals))
 
-print(np.asarray(point_cloud.points))
+# print(np.asarray(point_cloud.points))
 
 # Visualize the point cloud
 # o3d.visualization.draw_geometries([point_cloud])

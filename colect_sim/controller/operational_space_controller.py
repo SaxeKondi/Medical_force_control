@@ -125,21 +125,21 @@ class OperationalSpaceController(JointEffortController):
 
 
         force = self.data.sensordata[:3] #only forces
-        # print("The wrench is: ", force)
-        print("The wrench is: ", self.data.xpos[self.model_names._body_name2id["softbody_2"]])
+        print("The wrench is: ", force)
+        #print("The wrench is: ", self.data.xpos[self.model_names._body_name2id["softbody_2"]])
 
+        print_softbody_pos = False
+        if print_softbody_pos:
+            for i in range(370):
+                try:
+                    xpos = self.data.xpos[self.model_names._body_name2id["softbody_" + str(i)]]
 
-        for i in range(370):
-            try:
-                xpos = self.data.xpos[self.model_names._body_name2id["softbody_" + str(i)]]
-
-                with open('softbody_pos.txt', 'a') as file:
-                    np.savetxt(file, [xpos], fmt='%f')  # fmt
-            except:
-                print(i)
-        
-        import cv2
-        cv2.waitKey(2000)
+                    # with open('softbody_pos.txt', 'a') as file:
+                    #     np.savetxt(file, [xpos], fmt='%f')  # fmt
+                except:
+                    print(i)
+            import cv2
+            cv2.waitKey(2000)
 
 
         # This is the tool tip position: self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
@@ -147,7 +147,6 @@ class OperationalSpaceController(JointEffortController):
 
         # with open('wrench_data.txt', 'a') as file:
         #     np.savetxt(file, [force], fmt='%f')  # fmt
-
 
 
 
