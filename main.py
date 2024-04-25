@@ -11,8 +11,23 @@ def main() -> None:
   # Linear scanning near one edge
   # traj_start = np.array([0.375, 0.46, 0.205,quat[0],quat[1],quat[2],quat[3]])
   # traj_stop = np.array([0.625, 0.45, 0.205,quat[0],quat[1],quat[2],quat[3]])
+
+  # Move in neg z direction
   traj_start = np.array([0.5, 0.45, 0.235,quat[0],quat[1],quat[2],quat[3]])
   traj_stop = np.array([0.5, 0.45, 0.05,quat[0],quat[1],quat[2],quat[3]])
+
+  # Move in pos x direction
+  # traj_start = np.array([0.25, 0.45, 0.1,quat[0],quat[1],quat[2],quat[3]])
+  # traj_stop = np.array([0.4, 0.45, 0.1,quat[0],quat[1],quat[2],quat[3]])
+
+  # Move in neg x direction
+  # traj_start = np.array([0.78, 0.45, 0.12,quat[0],quat[1],quat[2],quat[3]])
+  # traj_stop = np.array([0.4, 0.45, 0.12,quat[0],quat[1],quat[2],quat[3]])
+
+  # Move in pos y direction
+  # traj_start = np.array([0.5, 0.25, 0.1,quat[0],quat[1],quat[2],quat[3]])
+  # traj_stop = np.array([0.5, 0.45, 0.1,quat[0],quat[1],quat[2],quat[3]])
+
   traj = linear_traj_w_gauss_noise(traj_start, traj_stop, 100, 0., 0.0005)
   
   # Soft body dimensions:
