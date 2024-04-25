@@ -1,8 +1,15 @@
 import open3d as o3d
 import numpy as np
+import os
+
+# Get the directory path of the current Python script
+script_dir = os.path.dirname(__file__)
+
+# Navigate to the parent directory of the script
+parent_dir = os.path.dirname(script_dir)
 
 # Load OBJ file
-mesh = o3d.io.read_triangle_mesh("scene/meshes/phantom/phantom.obj")
+mesh = o3d.io.read_triangle_mesh(parent_dir + "/scene/meshes/phantom/phantom.obj")
 
 # Convert to point cloud
 point_cloud = mesh.sample_points_uniformly(number_of_points=10000)

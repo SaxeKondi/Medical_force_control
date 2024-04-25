@@ -127,6 +127,7 @@ class OperationalSpaceController(JointEffortController):
         force = self.data.sensordata[:3] #only forces
         print("The wrench is: ", force)
         #print("The wrench is: ", self.data.xpos[self.model_names._body_name2id["softbody_2"]])
+        # print("The wrench is: ", self.data.flexelem_aabb[self.model_names.flex_name2id["softbody"]])
 
         print_softbody_pos = False
         if print_softbody_pos:

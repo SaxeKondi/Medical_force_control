@@ -13,6 +13,7 @@ MJ_OBJ_TYPES = [
     "mjOBJ_CAMERA",
     "mjOBJ_ACTUATOR",
     "mjOBJ_SENSOR",
+    "mjOBJ_FLEX",
 ]
 
 def get_site_jac(model, data, site_id):
@@ -74,6 +75,10 @@ def extract_mj_names(
     elif obj_type == mujoco.mjtObj.mjOBJ_MESH:
         name_addr = model.name_meshadr
         n_obj = model.nmesh
+
+    elif obj_type == mujoco.mjtObj.mjOBJ_FLEX:
+        name_addr = model.name_flexadr
+        n_obj = model.nflex
     else:
         raise ValueError(
             "`{}` was passed as the MuJoCo model object type. The MuJoCo model object type can only be of the following mjtObj enum types: {}.".format(
@@ -105,6 +110,7 @@ class MujocoModelNames:
         mjOBJ_CAMERA
         mjOBJ_ACTUATOR
         mjOBJ_SENSOR
+        mjOBJ_FLEX
 
     The properties provided for each ``mjObj`` are:
         ``mjObj``_names: list of the mjObj names in the model of type mjOBJ_FOO.
@@ -153,6 +159,11 @@ class MujocoModelNames:
             self._sensor_name2id,
             self._sensor_id2name,
         ) = extract_mj_names(model, mujoco.mjtObj.mjOBJ_SENSOR)
+        (
+            self._flex_names,
+            self._flex_name2id,
+            self._flex_id2name,
+        ) = extract_mj_names(model, mujoco.mjtObj.mjOBJ_FLEX)
 
     @property
     def body_names(self):
@@ -237,3 +248,16 @@ class MujocoModelNames:
     @property
     def sensor_id2name(self):
         return self._sensor_id2name
+
+    @property
+    def flex_names(self):
+        return self._flex_names
+
+    @property
+    def flex_name2id(self):
+        return self._flex_name2id
+
+    @property
+    def flex_id2name(self):
+        return self._flex_id2name
+    

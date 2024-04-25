@@ -1,7 +1,14 @@
 import numpy as np
+import os
 
-# Load the data from the file into a NumPy array
-data = np.loadtxt("softbody_pos_1.txt")
+# Get the directory path of the current Python script
+script_dir = os.path.dirname(__file__)
+
+# Navigate to the parent directory of the script
+parent_dir = os.path.dirname(script_dir)
+
+# Read data from file
+data = np.loadtxt(parent_dir + "\data\softbody_pos_1.txt")
 
 # Calculate the minimum and maximum values of each column
 min_values = np.min(data, axis=0)
