@@ -1,7 +1,9 @@
 <mujoco model="ur5e scene">
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
   
+  <!-- <option integrator="RK4" timestep="0.001" gravity="0 0 0"/> -->
   <option integrator="implicitfast" timestep="0.001" gravity="0 0 0"/>
+
 
   <extension>
     <plugin plugin="mujoco.elasticity.solid"/>
@@ -157,7 +159,6 @@
                   <joint name="wrist_3_joint" class="size1"/>
                   <geom material="linkgray" mesh="wrist3" class="visual"/>
                   <geom class="eef_collision" pos="0 0.08 0" quat="1 1 0 0" size="0.04 0.02"/>
-                  <site name="eef_site" pos="0 0.1 0" quat="1 0 0 1"/>
                   <!--body name="end_effector" pos="0 0.1 0" quat="1 1 0 0">
                     <inertial mass="0.05" pos="0 0.0771683 0" quat="1 0 0 1"
                       diaginertia="0.000132134 9.90863e-05 9.90863e-05"/>
@@ -170,7 +171,9 @@
                     <inertial mass="0.325" pos="0 0.07675 0"/>
                     <geom material="jointgray" mesh="us_probe" class="visual"/>
                     <geom class="us_probe_collision" mesh="us_probe"/>
-                    
+
+                      <site name="eef_site" pos="0 0.1 0" quat="1 0 0 1"/>
+
                     <!-- Red X-axis -->
                     <body name="eef_frame_x" pos="0.1 0 0">
                       <geom type="box" size="0.1 0.003 0.003" rgba="1 0 0 1" conaffinity="0" contype="0"/>
@@ -210,16 +213,21 @@
   </sensor>
 
   <worldbody>
-    <flexcomp type="grid" count="10 9 4" spacing=".02 .02 .02" pos=".5 .5 .03"
+        <!-- <contact condim="6" solref="0.01 1" solimp="0.09 0.95 0.001 0.5 2" selfcollide="none"/> -->
+    <!-- <flexcomp type="grid" count="10 9 4" spacing=".02 .02 .02" pos=".5 .5 .03"
               radius=".0001" rgba=".33 .31 0.28 1" name="softbody" dim="3" mass="1">
-        <pin id="0 32 324 356" range="1 1 1 1 1 1 1 1"/> <!--pin the lower 4 corners in place-->
-        <contact condim="1" solref="0.01 1" solimp=".95 .99 .0001" selfcollide="none"/>
+        <pin id="0 32 324 356" range="1 1 1 1 1 1 1 1"/> 
+        <contact condim="6" solref="0.01 1" solimp=".95 .99 .0001" selfcollide="none"/>
         <edge damping="1"/>
         <plugin plugin="mujoco.elasticity.solid">
           <config key="poisson" value="0.1"/>
-          <config key="young" value="5e4"/><!--15 kPa-->
+          <config key="young" value="5e4"/>
         </plugin>
-    </flexcomp>
+    </flexcomp> -->
+
+    <body name="prop">
+      <geom name="prop" type="box" size="0.18 0.16 0.06" pos=".5 .5 .03"/>
+    </body>
 
     <!-- Red X-axis -->
     <body name="grid_frame_x" pos="0.6 0.5 0.03"> <!-- Adjust position and orientation -->

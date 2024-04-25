@@ -123,6 +123,9 @@ class OperationalSpaceController(JointEffortController):
 
 
 
+        # ft_ori_mat = self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3, 3)
+        # print("Endeff", ft_ori_mat)
+        # print("Contact", self.data.site_contact[self.model_names.site_name2id["tcp_site"]].frame.reshape(3,3))
 
         force = self.data.sensordata[:3] #only forces
         print("The wrench is: ", force)
