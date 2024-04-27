@@ -10,8 +10,8 @@ from colect_sim.utils.mujoco_utils import MujocoModelNames
 from mujoco import MjModel, MjData
 from typing import List
 
-from scipy.spatial.transform import Rotation
-import mujoco as mj
+from add_utils.point_cloud import Point_cloud
+from add_utils.force_utils import Force_utils
 
 
 class TargetType(Enum):
@@ -80,6 +80,9 @@ class OperationalSpaceController(JointEffortController):
         self.target_tol = 0.01
         self.actual_wrench = None
 
+        self.point_cloud = Point_cloud()
+        self.force_utils = Force_utils(self.model, self.data, model_names)
+
     def run(self, target: np.ndarray, ctrl: np.ndarray) -> None:
         """
         Run the operational space controller to control the robot's joints using operational space control with gravity compensation.
@@ -121,51 +124,45 @@ class OperationalSpaceController(JointEffortController):
 
 
 
-
         # This is the tool tip position: self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
         # print(self.data.site_xpos[self.model_names.site_name2id["tcp_site"]])
 
         ###########################################
         # Option 1 to get force --> Contact force #
         ###########################################
-        force = self._get_contact_info(actor='', obj='prop')
+        # force = self.force_utils._get_contact_info("box")
         # print("The contact force is: ", force)
 
 
         ##########################################
         # Option 2 to get force --> Sensor force #
         ##########################################
-        force = self._get_sensor_force()
+        # force = self.force_utils._get_sensor_force()
         # print("The sensor force is: ", force)
-
-
-
-        ################################
-        # Only get force if in contact #
-        ################################
-        is_in_contact, _ = self._is_in_contact(obj1='', obj2='prop')
-
-        if is_in_contact:
-            force = self._get_sensor_force()
-
-
-
-        ############################
-        # Get alignment rot matrix #
-        ############################
-        # eef_pos = self.data.site_xpos[self.model_names.site_name2id["eef_site"]]
-        # eef_rot_matrix = self.data.site_xmat[self.model_names.site_name2id["eef_site"]]
-        # eef_pose = [eef_pos, eef_rot_matrix]
-        # print(eef_pose)
-        # rot = self.directionToNormal(eef_pose, force)
-
-
 
         # Save force data for further analysis
         # with open('wrench_data.txt', 'a') as file:
         #     np.savetxt(file, [force], fmt='%f')  # fmt
 
 
+        #############################################################
+        # Only get force if in contact and get alignment rot matrix #
+        #############################################################
+        is_in_contact, _ = self.force_utils._is_in_contact("box") # obj options: "softbody" or "box"
+
+        if is_in_contact:
+            force, eef_rot_mat = self.force_utils._get_sensor_force()
+
+            tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
+            surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
+
+            # print(self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3,3))
+
+            new_eef_rot_mat = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
+            print(new_eef_rot_mat)
+
+
+        
 
 
 
@@ -207,78 +204,6 @@ class OperationalSpaceController(JointEffortController):
         # Call the parent class's run method to apply the computed joint efforts to the robot actuators.
         super().run(u, ctrl)
 
-
-    def _get_sensor_force(self, site = "eef_site") -> np.ndarray:
-        eef_rot_mat = self.data.site_xmat[self.model_names.site_name2id[site]].reshape(3, 3)
-        force = self.data.sensordata[:3] #only forces
-        print("The sensor force is: ", force)
-        return eef_rot_mat @ force
-
-    def _obj_in_contact(self, cs, obj1: str, obj2: str) -> bool:
-        cs_ids = [cs.geom1, cs.geom2]
-        # Rigid box: ob1_id = 34     ob2_id = self.model.geom(obj2).id with obj2 = "prob"
-        # Softbody: ob1_id = 34      ob2_id = -1
-        ob1_id = 34
-        ob2_id = self.model.geom(obj2).id
-        obj_ids = [ob1_id, ob2_id]
-
-        if all(elem in cs_ids for elem in obj_ids):
-            return True
-        else:
-            return False
-
-    def _is_in_contact(self, obj1: str, obj2: str) -> tuple[bool,int]:
-        i = 0
-        for i in range(self.data.ncon):
-            contact = self.data.contact[i]
-            if self._obj_in_contact(contact, obj1, obj2):
-                return (True, i)
-        return (False, i)
-
-
-    def _get_contact_info(self, actor:str, obj:str) -> np.ndarray:
-        """
-        Function to get the actual force torque values from the simulation. 
-        Inputs: Data is the MJData from the simulation, actor is the object that we are touching with i.e. the gripper, obj is the object that we are in contact with i.e. pikachu
-        Outputs: Numpy array containing the force and torques
-        """
-        is_in_contact, cs_i = self._is_in_contact(actor, obj)
-
-        if is_in_contact:
-            wrench = self._get_cs(cs_i)
-            contact_frame = self.data.contact[cs_i].frame.reshape((3, 3)).T
-            return contact_frame @ wrench[:3]
-        else:
-            return np.zeros(6, dtype=np.float64)
-
-
-    def _get_cs(self, i: int) -> list[float]:
-        c_array = np.zeros(6, dtype=np.float64)
-        mj.mj_contactForce(self.model, self.data, i, c_array)
-        return c_array
-    
-
-    def directionToNormal(self, TCP_R, force):
-        """
-            Inputs: TCP rotation, force direction
-            Calulates the direction the robot should turn to align with the surface normal
-            Returns: Euler angles for rotation
-            If the end effector is parallel to the surface, the rotation matrix should be close to the identity matrix.
-        """
-        if force[0] == 0 and force[1] == 0 and force[2] == 0:
-            print("We are not in contact. Nothing to align to.")
-            return TCP_R
-        force = [int(np.abs(force[0])), int(np.abs(force[1])), int(np.abs(force[2]))]
-        force_norm = force / np.linalg.norm(force) # Normalize the force vector to be unit
-        z_axis = np.atleast_2d([0, 0, 1]) # Axis to align with
-        rot = Rotation.align_vectors(z_axis, [force_norm])[0] # Align force to z axis
-        return rot.as_matrix() @ Rotation.from_matrix([[1, 0, 0], [0, -1, 0], [0, 0, -1]]).as_matrix() # New rotation matrix the robot should have to be aligned. 
-
-
-
-
-
-
     def _scale_signal_vel_limited(self, u_task: np.ndarray) -> np.ndarray:
         """
         Scale the control signal such that the arm isn't driven to move faster in position or orientation than the specified vmax values.
@@ -304,6 +229,7 @@ class OperationalSpaceController(JointEffortController):
             return max(np.abs(self.actual_pose - self.target_pose)) < self.target_tol
         else:
             return False
+
 
 class AdmittanceController(OperationalSpaceController):
     def __init__(
@@ -456,19 +382,6 @@ class AdmittanceController(OperationalSpaceController):
         '''for i in range(1, len(vel)):
             pos[i] = pos[i-1] + pos[i-1] * dt  # Euler integration'''
         return pos
-
-
-    def directionToNormal(TCP_R, force):
-        """
-            Inputs: TCP rotation (3x3 matrix), force direction (3x1 vector XYZ)
-            Calulates the direction the robot should turn to align with the surface normal
-            Returns: Euler angles for rotation
-            If the end effector is parallel to the surface, the rotation matrix should be close to the identity matrix.
-        """
-        force_norm = force / np.linalg.norm(force) # Normalize the force vector to be unit
-        z_axis = np.atleast_2d([0, 0, 1]) # Axis to align with
-        rot = Rotation.align_vectors(z_axis, [force_norm])[0] # Align force to z axis
-        return rot.as_matrix() @ TCP_R # New rotation matrix the robot should have to be aligned.
 
 
     def tool_to_base(tool_frame):

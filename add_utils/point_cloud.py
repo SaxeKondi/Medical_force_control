@@ -7,9 +7,9 @@ import numpy as np
 class Point_cloud:
     def __init__(self):
         # Define dimensions
-        self.width = 0.18 # x
-        self.height = 0.16 # y
-        self.depth = 0.06 # z
+        self.width = 0.18 # x       0.41 until 0.59
+        self.height = 0.16 # y     0.42 until 0.58
+        self.depth = 0.06 # z     0.06
         self.center = [0.5 - self.width/2, 0.5 - self.height/2, 0.03 - self.depth/2]
         self.nr_points = 10000
 
