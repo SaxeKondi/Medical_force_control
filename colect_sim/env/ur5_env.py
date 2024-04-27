@@ -155,9 +155,6 @@ class UR5Env(MujocoEnv):
         self.pf_controller.Kp_p = np.eye(3)
         self.pf_controller.Kd_p = np.eye(3)
 
-        self.controller = self.invdyn_controller
-        # self.controller = self.adm_controller
-
         self.init_qpos_config = {
             "shoulder_pan_joint": np.pi / 2.0,
             "shoulder_lift_joint": -np.pi / 2.0,
@@ -275,7 +272,11 @@ class UR5Env(MujocoEnv):
             if elapsed > timeout:
                 print("Timeout while waiting for viewer to start.")
 
-    def step(self, action):
+    def step(self, action, controller_name: str ="op_space"):
+        if controller_name == "op_space":
+            self.controller = self.invdyn_controller
+        elif controller_name == "admittance":
+            self.controller = self.adm_controller
         
         # Step the simulation
         ctrl = self.data.ctrl.copy()

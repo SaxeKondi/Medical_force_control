@@ -1,8 +1,8 @@
 <mujoco model="ur5e scene">
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
   
-  <!-- <option integrator="RK4" timestep="0.001" gravity="0 0 0"/> -->
-  <option integrator="implicitfast" timestep="0.001" gravity="0 0 0"/>
+  <!-- <option integrator="implicitfast" timestep="0.0001" gravity="0 0 0"/> -->
+  <option integrator="implicitfast" timestep="0.005" gravity="0 0 0"/>
 
 
   <extension>
@@ -172,22 +172,21 @@
                     <geom material="jointgray" mesh="us_probe" class="visual"/>
                     <geom class="us_probe_collision" mesh="us_probe"/>
 
-                      <site name="eef_site" pos="0 0.1 0" quat="1 0 0 1"/>
+                      <site name="eef_site" pos="0 0 0" quat="1 0 0 1"/>
+                      <site name="tcp_site" pos="0 0.15175 0" quat="0.707107 0 0 0.707107"/>
 
-                    <!-- Red X-axis -->
-                    <body name="eef_frame_x" pos="0.1 0 0">
-                      <geom type="box" size="0.1 0.003 0.003" rgba="1 0 0 1" conaffinity="0" contype="0"/>
-                    </body>
-                    
-                    <!-- Green Y-axis -->
-                    <body name="eef_frame_y" pos="0 0.1 0">
-                      <geom type="box" size="0.003 0.1 0.003" rgba="0 1 0 1" conaffinity="0" contype="0"/>
-                    </body>
-                    
-                    <!-- Blue Z-axis -->
-                    <body name="eef_frame_z" pos="0 0 0.1">
-                      <geom type="box" size="0.003 0.003 0.1" rgba="0 0 1 1" conaffinity="0" contype="0"/>
-                    </body>
+                      <!-- Red X-axis -->
+                      <body name="eef_frame_x" quat="1 0 0 1" pos="0 0.1 0" >
+                        <geom type="box" size="0.1 0.003 0.003" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+                      </body>
+                      <!-- Green Y-axis -->
+                      <body name="eef_frame_y" quat="1 0 0 1" pos="0.1 0 0">
+                        <geom type="box" size="0.003 0.1 0.003" rgba="0 1 0 1" conaffinity="0" contype="0"/>
+                      </body>
+                      <!-- Blue Z-axis -->
+                      <body name="eef_frame_z" quat="1 0 0 1" pos="0 0 0.1">
+                        <geom type="box" size="0.003 0.003 0.1" rgba="0 0 1 1" conaffinity="0" contype="0"/>
+                      </body>
                   </body>
                 </body>
               </body>
@@ -220,8 +219,8 @@
         <contact condim="6" solref="0.01 1" solimp=".95 .99 .0001" selfcollide="none"/>
         <edge damping="1"/>
         <plugin plugin="mujoco.elasticity.solid">
-          <config key="poisson" value="0.1"/>
-          <config key="young" value="5e4"/>
+          <config key="poisson" value="0.48"/>
+          <config key="young" value="4.2e5"/>
         </plugin>
     </flexcomp> -->
 

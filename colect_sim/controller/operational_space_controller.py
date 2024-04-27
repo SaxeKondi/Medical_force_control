@@ -3,16 +3,15 @@ import numpy as np
 from enum import Enum
 from colect_sim.controller.joint_effort_controller import JointEffortController
 from colect_sim.controller.joint_velocity_controller import JointVelocityController
-from colect_sim.controller.joint_position_controller import JointPositionController
 from colect_sim.utils.mujoco_utils import get_site_jac, get_fullM
 from colect_sim.utils.transform_utils import mat2quat
-from colect_sim.utils.controller_utils import task_space_inertia_matrix, pose_error, get_rot_angle
+from colect_sim.utils.controller_utils import task_space_inertia_matrix, pose_error
 from colect_sim.utils.mujoco_utils import MujocoModelNames
-from colect_sim.utils.pid_controller_utils import SpatialPIDController
 from mujoco import MjModel, MjData
-from numpy.linalg import inv
-from pytransform3d import rotations as pr
 from typing import List
+
+from scipy.spatial.transform import Rotation
+import mujoco as mj
 
 
 class TargetType(Enum):
@@ -123,35 +122,49 @@ class OperationalSpaceController(JointEffortController):
 
 
 
-        ft_ori_mat = self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3, 3)
-        # print("Endeff", ft_ori_mat)
-        # print("Contact", self.data.site_contact[self.model_names.site_name2id["tcp_site"]].frame.reshape(3,3))
-
-        force = self.data.sensordata[:3] #only forces
-        # force = ft_ori_mat @ force
-        print("The wrench is: ", force)
-        #print("The wrench is: ", self.data.xpos[self.model_names._body_name2id["softbody_2"]])
-        # print("The wrench is: ", self.data.flexelem_aabb[self.model_names.flex_name2id["softbody"]])
-
-        print_softbody_pos = False
-        if print_softbody_pos:
-            for i in range(370):
-                try:
-                    xpos = self.data.xpos[self.model_names._body_name2id["softbody_" + str(i)]]
-
-                    # with open('softbody_pos.txt', 'a') as file:
-                    #     np.savetxt(file, [xpos], fmt='%f')  # fmt
-                except:
-                    print(i)
-            import cv2
-            cv2.waitKey(2000)
-
-
         # This is the tool tip position: self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
+        # print(self.data.site_xpos[self.model_names.site_name2id["tcp_site"]])
+
+        ###########################################
+        # Option 1 to get force --> Contact force #
+        ###########################################
+        force = self._get_contact_info(actor='', obj='prop')
+        # print("The contact force is: ", force)
 
 
+        ##########################################
+        # Option 2 to get force --> Sensor force #
+        ##########################################
+        force = self._get_sensor_force()
+        # print("The sensor force is: ", force)
+
+
+
+        ################################
+        # Only get force if in contact #
+        ################################
+        is_in_contact, _ = self._is_in_contact(obj1='', obj2='prop')
+
+        if is_in_contact:
+            force = self._get_sensor_force()
+
+
+
+        ############################
+        # Get alignment rot matrix #
+        ############################
+        # eef_pos = self.data.site_xpos[self.model_names.site_name2id["eef_site"]]
+        # eef_rot_matrix = self.data.site_xmat[self.model_names.site_name2id["eef_site"]]
+        # eef_pose = [eef_pos, eef_rot_matrix]
+        # print(eef_pose)
+        # rot = self.directionToNormal(eef_pose, force)
+
+
+
+        # Save force data for further analysis
         # with open('wrench_data.txt', 'a') as file:
         #     np.savetxt(file, [force], fmt='%f')  # fmt
+
 
 
 
@@ -193,6 +206,78 @@ class OperationalSpaceController(JointEffortController):
 
         # Call the parent class's run method to apply the computed joint efforts to the robot actuators.
         super().run(u, ctrl)
+
+
+    def _get_sensor_force(self, site = "eef_site") -> np.ndarray:
+        eef_rot_mat = self.data.site_xmat[self.model_names.site_name2id[site]].reshape(3, 3)
+        force = self.data.sensordata[:3] #only forces
+        print("The sensor force is: ", force)
+        return eef_rot_mat @ force
+
+    def _obj_in_contact(self, cs, obj1: str, obj2: str) -> bool:
+        cs_ids = [cs.geom1, cs.geom2]
+        # Rigid box: ob1_id = 34     ob2_id = self.model.geom(obj2).id with obj2 = "prob"
+        # Softbody: ob1_id = 34      ob2_id = -1
+        ob1_id = 34
+        ob2_id = self.model.geom(obj2).id
+        obj_ids = [ob1_id, ob2_id]
+
+        if all(elem in cs_ids for elem in obj_ids):
+            return True
+        else:
+            return False
+
+    def _is_in_contact(self, obj1: str, obj2: str) -> tuple[bool,int]:
+        i = 0
+        for i in range(self.data.ncon):
+            contact = self.data.contact[i]
+            if self._obj_in_contact(contact, obj1, obj2):
+                return (True, i)
+        return (False, i)
+
+
+    def _get_contact_info(self, actor:str, obj:str) -> np.ndarray:
+        """
+        Function to get the actual force torque values from the simulation. 
+        Inputs: Data is the MJData from the simulation, actor is the object that we are touching with i.e. the gripper, obj is the object that we are in contact with i.e. pikachu
+        Outputs: Numpy array containing the force and torques
+        """
+        is_in_contact, cs_i = self._is_in_contact(actor, obj)
+
+        if is_in_contact:
+            wrench = self._get_cs(cs_i)
+            contact_frame = self.data.contact[cs_i].frame.reshape((3, 3)).T
+            return contact_frame @ wrench[:3]
+        else:
+            return np.zeros(6, dtype=np.float64)
+
+
+    def _get_cs(self, i: int) -> list[float]:
+        c_array = np.zeros(6, dtype=np.float64)
+        mj.mj_contactForce(self.model, self.data, i, c_array)
+        return c_array
+    
+
+    def directionToNormal(self, TCP_R, force):
+        """
+            Inputs: TCP rotation, force direction
+            Calulates the direction the robot should turn to align with the surface normal
+            Returns: Euler angles for rotation
+            If the end effector is parallel to the surface, the rotation matrix should be close to the identity matrix.
+        """
+        if force[0] == 0 and force[1] == 0 and force[2] == 0:
+            print("We are not in contact. Nothing to align to.")
+            return TCP_R
+        force = [int(np.abs(force[0])), int(np.abs(force[1])), int(np.abs(force[2]))]
+        force_norm = force / np.linalg.norm(force) # Normalize the force vector to be unit
+        z_axis = np.atleast_2d([0, 0, 1]) # Axis to align with
+        rot = Rotation.align_vectors(z_axis, [force_norm])[0] # Align force to z axis
+        return rot.as_matrix() @ Rotation.from_matrix([[1, 0, 0], [0, -1, 0], [0, 0, -1]]).as_matrix() # New rotation matrix the robot should have to be aligned. 
+
+
+
+
+
 
     def _scale_signal_vel_limited(self, u_task: np.ndarray) -> np.ndarray:
         """
@@ -286,8 +371,7 @@ class AdmittanceController(OperationalSpaceController):
         self.velz = 0
 
 
-        self.Xc = self.data.xpos[self.model_names.body_name2id["end_effector"]] # MAYBE end-effector is not the correct position we want here
-        print(self.Xc)
+        self.Xc = data.site_xpos[model_names.site_name2id["tcp_site"]] # MAYBE end-effector is not the correct position we want here
         
 
         self.Xex = 0
