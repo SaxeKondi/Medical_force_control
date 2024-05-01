@@ -2,7 +2,6 @@ import numpy as np
 
 from enum import Enum
 from colect_sim.controller.joint_effort_controller import JointEffortController
-from colect_sim.controller.joint_velocity_controller import JointVelocityController
 from colect_sim.utils.mujoco_utils import get_site_jac, get_fullM
 from colect_sim.utils.transform_utils import mat2quat
 from colect_sim.utils.controller_utils import task_space_inertia_matrix, pose_error
@@ -381,63 +380,5 @@ class AdmittanceController(OperationalSpaceController):
     def main_target_reached(self):
         if self.eef_pose is not None and self.target is not None:
             return max(np.abs(self.eef_pose - self.target)) < self.target_tol
-        else:
-            return False
-
-
-class ParallelForcePositionController(JointVelocityController):
-    def __init__(
-        self,
-        model: MjModel,
-        data: MjData,
-        model_names: MujocoModelNames,
-        eef_name: str,
-        joint_names: List[str],
-        actuator_names: List[str],
-        min_effort: List[float],
-        max_effort: List[float],
-        min_velocity: List[float],
-        max_velocity: List[float],
-        kp_jnt_vel: List[float], 
-        ki_jnt_vel: List[float], 
-        kd_jnt_vel: List[float], 
-        kp: np.ndarray,
-        ki: np.ndarray,
-        kd: np.ndarray,
-        control_period: float,
-    ) -> None:
-        super().__init__(
-            model, 
-            data, 
-            model_names, 
-            eef_name, 
-            joint_names, 
-            actuator_names, 
-            min_effort, 
-            max_effort, 
-            min_velocity,
-            max_velocity,
-            kp_jnt_vel,
-            ki_jnt_vel,
-            kd_jnt_vel,
-        )
-        # TODO: INSERT MAGICAL CODE HERE
-
-        self.target_tol = 0.0075
-
-    def run(
-        self, 
-        target_pose: np.ndarray,
-        ctrl: np.ndarray,
-    ) -> None:
-
-       # TODO: INSERT MAGICAL CODE HERE
-
-        # Call the parent class's run method to apply the computed joint efforts to the robot actuators.
-        super().run(u, ctrl)  
-
-    def target_reached(self):
-        if self.actual_pose is not None and self.target_pose is not None:
-            return max(np.abs(self.actual_pose - self.target_pose)) < self.target_tol
         else:
             return False
