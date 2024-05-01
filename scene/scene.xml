@@ -226,7 +226,6 @@
     </flexcomp> -->
 
     <body name="prop">
-      <!-- <geom name="prop" type="box" size="0.18 0.16 0.06" pos=".5 .5 .03"/> -->
       <geom name="prop" type="box" size="0.09 0.08 0.03" pos=".5 .5 .03"/>
     </body>
 

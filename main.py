@@ -9,12 +9,12 @@ def main() -> None:
   quat = np.array([0,1,0,1])
   quat = quat / np.linalg.norm(quat)
   # Linear scanning near one edge
-  # traj_start = np.array([0.375, 0.46, 0.205,quat[0],quat[1],quat[2],quat[3]])
-  # traj_stop = np.array([0.625, 0.45, 0.205,quat[0],quat[1],quat[2],quat[3]])
+  traj_start = np.array([0.375, 0.46, 0.205,quat[0],quat[1],quat[2],quat[3]])
+  traj_stop = np.array([0.625, 0.45, 0.205,quat[0],quat[1],quat[2],quat[3]])
 
   # Move in neg z direction
-  traj_start = np.array([0.5, 0.45, 0.225,quat[0],quat[1],quat[2],quat[3]])
-  traj_stop = np.array([0.5, 0.45, -1,quat[0],quat[1],quat[2],quat[3]])
+  # traj_start = np.array([0.5, 0.45, 0.225,quat[0],quat[1],quat[2],quat[3]])
+  # traj_stop = np.array([0.5, 0.45, -5,quat[0],quat[1],quat[2],quat[3]])
 
   # Move in pos x direction
   # traj_start = np.array([0.35, 0.45, 0.21,quat[0],quat[1],quat[2],quat[3]])
@@ -36,7 +36,7 @@ def main() -> None:
       next = traj[i]
       op_target_reached = False
       while not op_target_reached:
-          op_target_reached, terminated = env.step(next, controller_name="op_space") # Controller options: "op_space" or "admittance"
+          op_target_reached, terminated = env.step(next, controller_name="admittance") # Controller options: "op_space" or "admittance"
       env.enable_recording = True # inelegant, but works for aligning the recording to the target
       i += 1
       if i > len(traj) - 1 : terminated = True

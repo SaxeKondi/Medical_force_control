@@ -12,6 +12,7 @@ from typing import List
 
 from add_utils.point_cloud import Point_cloud
 from add_utils.force_utils import Force_utils
+from scipy.spatial.transform import Rotation
 
 
 class TargetType(Enum):
@@ -148,10 +149,12 @@ class OperationalSpaceController(JointEffortController):
         #############################################################
         # Only get force if in contact and get alignment rot matrix #
         #############################################################
-        is_in_contact, _ = self.force_utils._is_in_contact("box") # obj options: "softbody" or "box"
+        is_in_contact, _ = self.force_utils._is_in_contact("softbody") # obj options: "softbody" or "box"
 
         if is_in_contact:
             force, eef_rot_mat = self.force_utils._get_sensor_force()
+            force = -1.0 * force
+            print(force)
 
             tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
             surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
@@ -159,7 +162,7 @@ class OperationalSpaceController(JointEffortController):
             # print(self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3,3))
 
             new_eef_rot_mat = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
-            print(new_eef_rot_mat)
+            # print(new_eef_rot_mat)
 
 
         
@@ -272,14 +275,14 @@ class AdmittanceController(OperationalSpaceController):
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
-        m1 = 1
-        m2 = 1
+        m1 = 3
+        m2 = 3
         m3 = 3
-        k1 = 1
-        k2 = 1
-        k3 = 3
-        kenv1 = 10 #set by user depending on current object to be reconstructed
-        kenv2 = 10
+        k1 = 10
+        k2 = 10
+        k3 = 10
+        kenv1 = 100 #set by user depending on current object to be reconstructed
+        kenv2 = 100
         kd1 = 2*np.sqrt(m1*(k1+kenv1))
         kd2 = 2*np.sqrt(m2*(k2+kenv2))
 
@@ -288,106 +291,95 @@ class AdmittanceController(OperationalSpaceController):
         self.D_prev = np.array([[kd1,0,0],[0,kd2,0],[0,0,k3]])
 
         # Other parameters
-        self.dt = 0.002 #Based on the control loop of the robot (given by simulation). 1/500 in real UR5 environment. 
-        self.first_iteration = True
+        self.dt = 0.001 #Based on the control loop of the robot (given by simulation). 1/500 in real UR5 environment. 
         
         #Initial conditions:
-        self.velx = 0
-        self.vely = 0
-        self.velz = 0
+        self.vel = np.array([0, 0, 0])
+
+        self.Xc = data.site_xpos[model_names.site_name2id["eef_site"]] # MAYBE end-effector is not the correct position we want here
+        self.Xe = np.array([0, 0, 2])
+
+        self.target_force = np.array([0, 0, 0])
+
+        self.point_cloud = Point_cloud()
+        self.force_utils = Force_utils(self.model, self.data, self.model_names)
+
+        self.contact = False
 
 
-        self.Xc = data.site_xpos[model_names.site_name2id["tcp_site"]] # MAYBE end-effector is not the correct position we want here
-        
+    def admittance(self, target):
+        # Check for contact
+        is_in_contact, _ = self.force_utils._is_in_contact("box") # obj options: "softbody" or "box"
 
-        self.Xex = 0
-        self.Xey = 0
-        self.Xez = 0
-        self.wrench = start_ft[:3]
+        if is_in_contact:
+            self.contact = True
 
-        self.target_force = 5
+        if self.contact:
+            self.Xc = self.data.site_xpos[self.model_names.site_name2id["eef_site"]] # MAYBE end-effector is not the correct position we want here
+            Xd = target[:3]
 
+            force, eef_rot_mat = self.force_utils._get_sensor_force()
+            force = -1.0 * force
+            # print(force)
 
-    def admittance(self):
-        # Get the orientation matrix of the force-torque (FT) sensor
-        ft_ori_mat = self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3, 3)
-        
-        force = self.data.sensordata[:3] #only forces
-        # Transform the force and torque from the sensor frame to the world frame
-        # force = ft_ori_mat @ force
+            tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
+            surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
 
-        TCP_R = 0
-        
+            # print(self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3,3))
 
-        rot_align = (self.directionToNormal(TCP_R, force))
+            rot_align = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
+            
+            M = rot_align @ self.M_prev #update gains based on orientation function
+            K = rot_align @ self.K_prev
+            D = rot_align @ self.D_prev
+            
+            pos_error = self.Xc - Xd
+            print(pos_error)
 
-        M = rot_align @ self.M_prev #update gains based on orientation function
-        K = rot_align @ self.K_prev
-        D = rot_align @ self.D_prev
-        
-        # Step 1: Calculate acceleration
-        Xd = np.copy(self.Xc) + np.array([0.01, 0.01, 0])
+            # print("Type of wrench:", force.shape)
+            # print("Type of target force:", self.target_force.shape)
+            # print("Type of vel:", self.vel.shape)
+            # print("Type of pos errr:", pos_error.shape)
+            # print("Type of K:", K.shape)
+            # print("Type of D:", D.shape)
+            # print("Type of M:", M.shape)
 
-        if self.first_iteration:
-            Xd = self.Xc
-        
-        pos_error = self.Xc - Xd
-        
-        print("Type of measured force:", force)
-        print("Type of target force:", self.target_force)
-        print("Type of vel:", velx)
-        print("Type of pos errr:", pos_error)
-        print("Type of K:", K)
-        print("Type of D:", D)
-        print("Type of M:", M)
+            # Step 1: Calculate acceleration
+            self.acc = np.linalg.inv(M) @ (force + self.target_force - D @ self.vel - K @ pos_error)
 
-        accx = np.linalg.inv(M) @ (force + self.target_force - D @ velx - K @ pos_error[0])
-        accy = np.linalg.inv(M) @ (force + self.target_force - D @ vely - K @ pos_error[1])
-        accz = np.linalg.inv(M) @ (force + self.target_force - D @ velz - K @ pos_error[2])
-        
-        # Step 2: Integrate acceleration to get velocity
-        velx = self.int_acc(accx, velx, self.dt)
-        vely = self.int_acc(accy, vely, self.dt)
-        velz = self.int_acc(accz, velz, self.dt)
-        
-        # Step 3: Integrate velocity to get position
-        Xex = self.int_vel(velx, Xex, self.dt)
-        Xey = self.int_vel(vely, Xey, self.dt)
-        Xez = self.int_vel(velz, Xez, self.dt)
-        
-        # Step 4: Update current position
-        Xcx = Xex + Xd[0]
-        Xcy = Xez + Xd[1]
-        Xcz = Xey + Xd[2]
-        self.Xc = [Xcx, Xcy, Xcz]
-        self.first_iteration = False
-        # Exit condition in case force readings are lower than a threshold (contact lost)
-        # if wrench >= [0,0,0]:
-        #     break
-        print(self.Xc)
-        return self.tool_to_base(self.Xc)
+            # Step 2: Integrate acceleration to get velocity
+            self.vel = self.int_acc(self.acc, self.vel, self.dt)
+            
+            # Step 3: Integrate velocity to get position
+            self.Xe = self.int_vel(self.vel, self.Xe, self.dt)
+
+            # print(self.Xe)
+            # print("Xd", Xd)
+            
+            # Step 4: Update current position
+            self.Xc = self.Xe + Xd
+            # print(self.Xc)
+
+            align_quaternion = Rotation.from_matrix(rot_align).as_quat()
+            # print([self.Xc[0], self.Xc[1], self.Xc[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
+            return np.array([self.Xc[0], self.Xc[1], self.Xc[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]]) #np.array([self.Xc, Rotation.from_matrix(rot_align).as_quat()]) #self.tool_to_base(self.Xc)
+        else:
+            return target
 
 
-    def int_acc(acc, vel, dt):
+    def int_acc(self, acc, vel, dt):
         vel = vel + acc * dt
-        '''
-        k1 = acc
-        k2 = acc
-        vel = vel + 0.5 * (k1 + k2) * dt  # Second-order Runge-Kutta (Midpoint) method for single values    
-        '''
         return vel
 
-    def int_vel(vel, pos, dt):
+
+    def int_vel(self, vel, pos, dt):
         pos = pos + vel * dt
-        '''for i in range(1, len(vel)):
-            pos[i] = pos[i-1] + pos[i-1] * dt  # Euler integration'''
         return pos
 
 
-    def tool_to_base(tool_frame):
-
+    def tool_to_base(self, tool_frame):
         """
-        Transform a 4x4 T matrix in tool_frame to base frame.
+        Transform a 4x4 transformation matrix in tool_frame to base frame.
         Returns only the positional part
         """
 
@@ -419,7 +411,7 @@ class AdmittanceController(OperationalSpaceController):
     ) -> None:
         
         # TODO: INSERT MAGICAL CODE HERE
-        u = self.admittance()
+        u = self.admittance(target)
 
         # Call the parent class's run method to apply the computed joint efforts to the robot actuators.
         super().run(u, ctrl)  

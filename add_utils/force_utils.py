@@ -59,7 +59,7 @@ class Force_utils:
         """
         eef_rot_mat = self.data.site_xmat[self.model_names.site_name2id[site]].reshape(3, 3)
         force = self.data.sensordata[:3]  # only forces
-        return eef_rot_mat @ force, eef_rot_mat
+        return eef_rot_mat @ force, eef_rot_mat # Returns force in world frame
 
 
     def _obj_in_contact(self, cs, obj1: str, obj2: str) -> bool:
@@ -125,7 +125,7 @@ class Force_utils:
         if is_in_contact:
             wrench = self._get_cs(cs_i)
             contact_frame = self.data.contact[cs_i].frame.reshape((3, 3)).T
-            return contact_frame @ wrench[:3]
+            return contact_frame @ wrench[:3] 
         else:
             return np.zeros(6, dtype=np.float64)
 
