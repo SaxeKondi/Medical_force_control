@@ -78,7 +78,7 @@ class OperationalSpaceController(JointEffortController):
 
         self.actual_pose = None
         self.target_pose = None
-        self.target_tol = 0.01
+        self.target_tol = 0.0075#0.01
         self.actual_wrench = None
 
         self.point_cloud = Point_cloud()
@@ -271,7 +271,7 @@ class AdmittanceController(OperationalSpaceController):
             null_damp_kv=10,
         )
         
-        self.target_tol = 0.0075
+        self.target_tol = 0.0075 #0.0075
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
@@ -297,7 +297,7 @@ class AdmittanceController(OperationalSpaceController):
         self.vel = np.array([0, 0, 0])
 
         self.Xc = data.site_xpos[model_names.site_name2id["eef_site"]] # MAYBE end-effector is not the correct position we want here
-        self.Xe = np.array([0, 0, 2])
+        self.Xe = np.array([0, 0, 0])
 
         self.target_force = np.array([0, 0, 0])
 
@@ -319,7 +319,7 @@ class AdmittanceController(OperationalSpaceController):
             Xd = target[:3]
 
             force, eef_rot_mat = self.force_utils._get_sensor_force()
-            force = -1.0 * force
+            # force = -1.0 * force
             # print(force)
 
             tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
@@ -333,19 +333,20 @@ class AdmittanceController(OperationalSpaceController):
             K = rot_align @ self.K_prev
             D = rot_align @ self.D_prev
             
-            pos_error = self.Xc - Xd
-            print(pos_error)
+            self.Xe = self.Xc - Xd
+            # print(self.Xc)
+            # print("Xd", Xd)
 
             # print("Type of wrench:", force.shape)
             # print("Type of target force:", self.target_force.shape)
             # print("Type of vel:", self.vel.shape)
-            # print("Type of pos errr:", pos_error.shape)
+            # print("Type of pos errr:", self.Xe.shape)
             # print("Type of K:", K.shape)
             # print("Type of D:", D.shape)
             # print("Type of M:", M.shape)
 
             # Step 1: Calculate acceleration
-            self.acc = np.linalg.inv(M) @ (force + self.target_force - D @ self.vel - K @ pos_error)
+            self.acc = np.linalg.inv(M) @ (force + self.target_force - D @ self.vel - K @ self.Xe)
 
             # Step 2: Integrate acceleration to get velocity
             self.vel = self.int_acc(self.acc, self.vel, self.dt)
@@ -358,7 +359,7 @@ class AdmittanceController(OperationalSpaceController):
             
             # Step 4: Update current position
             self.Xc = self.Xe + Xd
-            # print(self.Xc)
+            print(self.Xc)
 
             align_quaternion = Rotation.from_matrix(rot_align).as_quat()
             # print([self.Xc[0], self.Xc[1], self.Xc[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
@@ -375,33 +376,6 @@ class AdmittanceController(OperationalSpaceController):
     def int_vel(self, vel, pos, dt):
         pos = pos + vel * dt
         return pos
-
-
-    def tool_to_base(self, tool_frame):
-        """
-        Transform a 4x4 transformation matrix in tool_frame to base frame.
-        Returns only the positional part
-        """
-
-        T_base_tool = np.array([
-        [-0.52960, 0.74368, 0.40801, 0.27667],
-        [0.84753, 0.44413, 0.29059, -0.60033],
-        [0.03490, 0.49970, -0.86550, 0.51277],
-        [0.00000, 0.00000, 0.00000, 1.00000]
-        ])
-
-        T_tool_tcp = np.array([
-        [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0.1143],
-        [0.00000, 0.00000, 0.00000, 1.00000]])
-        
-        # Multiply tool_frame by the identity matrix
-        final = tool_frame @ T_base_tool @ T_tool_tcp
-
-        positional_part = final[:3, 3]
-
-        return positional_part
 
 
     def run(
