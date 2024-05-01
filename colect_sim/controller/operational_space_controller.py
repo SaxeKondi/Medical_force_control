@@ -350,12 +350,11 @@ class AdmittanceController(OperationalSpaceController):
             return target
 
 
-    def int_acc(self, acc, vel, dt):
+    def int_acc(self, acc, vel, dt): # Euler integration
         vel = vel + acc * dt
         return vel
 
-
-    def int_vel(self, vel, pos, dt):
+    def int_vel(self, vel, pos, dt): # Euler integration
         pos = pos + vel * dt
         return pos
 

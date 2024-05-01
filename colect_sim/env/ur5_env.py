@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-from colect_sim.controller.operational_space_controller import ParallelForcePositionController, AdmittanceController, OperationalSpaceController, TargetType
+from colect_sim.controller.operational_space_controller import AdmittanceController, OperationalSpaceController, TargetType
 from colect_sim.env.mujoco_env import MujocoEnv
 from colect_sim.utils.mujoco_utils import MujocoModelNames
 from mujoco import viewer
@@ -115,45 +115,6 @@ class UR5Env(MujocoEnv):
             max_effort=[150, 150, 150, 150, 150, 150],
             control_period=self.model.opt.timestep,
         )
-
-        self.pf_controller = ParallelForcePositionController(
-            model=self.model, 
-            data=self.data, 
-            model_names=self.model_names,
-            eef_name='eef_site', 
-            joint_names=[
-                'shoulder_pan_joint',
-                'shoulder_lift_joint',
-                'elbow_joint',
-                'wrist_1_joint',
-                'wrist_2_joint',
-                'wrist_3_joint',
-            ],
-            actuator_names=[
-                'shoulder_pan',
-                'shoulder_lift',
-                'elbow',
-                'wrist_1',
-                'wrist_2',
-                'wrist_3',
-            ],
-            min_effort=[-150, -150, -150, -150, -150, -150],
-            max_effort=[150, 150, 150, 150, 150, 150],
-            min_velocity=[-1, -1, -1, -1, -1, -1],
-            max_velocity=[1, 1, 1, 1, 1, 1],
-            kp_jnt_vel=[100, 100, 100, 100, 100, 100],
-            ki_jnt_vel=0,
-            kd_jnt_vel=0,
-            kp=[10, 10, 10, 10, 10, 10],
-            ki=[0, 0, 0, 0, 0, 0],
-            kd=[3, 3, 3, 8, 8, 8],
-            control_period=self.model.opt.timestep,
-        )
-        
-        self.pf_controller.Kp_f = np.eye(3)
-        self.pf_controller.Kv_f = np.eye(3)
-        self.pf_controller.Kp_p = np.eye(3)
-        self.pf_controller.Kd_p = np.eye(3)
 
         self.init_qpos_config = {
             "shoulder_pan_joint": np.pi / 2.0,
