@@ -300,7 +300,12 @@ class UR5Env(MujocoEnv):
         if self.enable_recording:
             self.recorded_data.append(self.controller.plot_data)
 
-        return self.controller.target_reached(), not self.viewer.is_running()
+        if controller_name == "op_space":
+            return self.controller.target_reached(), not self.viewer.is_running()
+        elif controller_name == "admittance":
+            return self.controller.main_target_reached(), not self.viewer.is_running()
+        return False, True
+        
 
     def reset_model(self):
         qpos = self.init_qpos

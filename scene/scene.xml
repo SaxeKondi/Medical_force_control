@@ -2,7 +2,7 @@
   <compiler angle="radian" meshdir="meshes/" autolimits="true"/>
   
   <!-- <option integrator="implicitfast" timestep="0.0001" gravity="0 0 0"/> -->
-  <option integrator="implicitfast" timestep="0.001" gravity="0 0 0"/>
+  <option integrator="implicitfast" timestep="0.0005" gravity="0 0 0"/>
 
 
   <extension>

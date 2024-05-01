@@ -125,9 +125,9 @@ class Force_utils:
         if is_in_contact:
             wrench = self._get_cs(cs_i)
             contact_frame = self.data.contact[cs_i].frame.reshape((3, 3)).T
-            return contact_frame @ wrench[:3] 
+            return contact_frame @ wrench[:3]
         else:
-            return np.zeros(6, dtype=np.float64)
+            return np.zeros(3, dtype=np.float64)
 
 
     def _get_cs(self, i: int) -> list[float]:
