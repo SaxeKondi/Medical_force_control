@@ -26,7 +26,7 @@ class Force_utils:
         Aligns the end effector's x-axis with the surface normal.
 
         Parameters:
-            eef_rot_matrix (numpy.array): The current orientation rotation matrix of the end effector.
+            eef_rot_matrix (numpy.array): The current rotation matrix of the end effector.
             surface_normal (numpy.array): The surface normal vector.
 
         Returns:

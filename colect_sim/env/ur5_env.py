@@ -264,7 +264,7 @@ class UR5Env(MujocoEnv):
         if controller_name == "op_space":
             return self.controller.target_reached(), not self.viewer.is_running()
         elif controller_name == "admittance":
-            return self.controller.main_target_reached(), not self.viewer.is_running()
+            return self.controller.target_reached(), not self.viewer.is_running()
         return False, True
         
 

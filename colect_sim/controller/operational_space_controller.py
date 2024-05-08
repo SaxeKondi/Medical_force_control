@@ -229,7 +229,7 @@ class OperationalSpaceController(JointEffortController):
             return False
 
 
-class AdmittanceController(OperationalSpaceController):
+class AdmittanceController(JointEffortController):
     def __init__(
         self,
         model: MjModel,
@@ -248,51 +248,72 @@ class AdmittanceController(OperationalSpaceController):
         singularity_avoidance: bool = False,
         
     ) -> None:
+        # super().__init__(
+        #     model, 
+        #     data, 
+        #     model_names, 
+        #     eef_name, 
+        #     joint_names, 
+        #     actuator_names,
+        #     min_effort, 
+        #     max_effort,
+        #     target_type=TargetType.POSE,
+        #     kp=400.0,
+        #     ko=200.0,
+        #     kv=50.0,
+        #     vmax_xyz=2,
+        #     vmax_abg=2,
+        #     null_damp_kv=10,
+        # )
         super().__init__(
             model, 
             data, 
             model_names, 
             eef_name, 
             joint_names, 
-            actuator_names,
+            actuator_names, 
             min_effort, 
-            max_effort,
-            target_type=TargetType.POSE,
-            kp=400.0,
-            ko=200.0,
-            kv=50.0,
-            vmax_xyz=2,
-            vmax_abg=2,
-            null_damp_kv=10,
+            max_effort, 
         )
+        self.control_period = control_period
         
         self.target_tol = 0.0075 #0.0075
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
-        m = 1
+        m = 22.5 # 1
         kenv = 20000 # 5000 for softbody
-        kd = 1
-        k = 4/m * kd - kenv
+        kd = 85 # 1
+        k = 0 # 4/m * kd - kenv
 
-        self.M_prev = np.array([[m,0,0],[0,m,0],[0,0,m]])
-        self.K_prev = np.array([[k,0,0],[0,k,0],[0,0,0]])
-        self.D_prev = np.array([[kd,0,0],[0,kd,0],[0,0,kd]])
+        self.M = np.array([[m,0,0],[0,m,0],[0,0,m]])
+        self.K = np.array([[k,0,0],[0,k,0],[0,0,0]])
+        self.D = np.array([[kd,0,0],[0,kd,0],[0,0,kd]])
 
-        # Other parameters
-        self.dt = 0.0005 #Based on the control loop of the robot (given by simulation). 1/500 in real UR5 environment. 
+        self._x_d = start_position
         
         #Initial conditions:
-        self.vel = np.array([0, 0, 0])
-
-        self.Xe = np.array([0, 0, 0])
-
-        self.target_force = np.array([0, 0, 500])
+        self._dc_c = np.array([0.0, 0.0, 0.0])
+        self._x_e = np.array([0.0, 0.0, 0.0])
+        self._dx_e = np.array([0.0, 0.0, 0.0])
+        self.target_force = np.array([0.0, 0.0, -150.0])
 
         self.point_cloud = Point_cloud()
         self.force_utils = Force_utils(self.model, self.data, self.model_names)
 
         self.contact = False
+
+        #################################################################################################
+        self.Mo = np.diag([0.25, 0.25, 0.25])  # Orientation Mass
+        self.Ko = np.diag([0, 0, 0])  # Orientation Stiffness
+        self.Do = np.diag([5, 5, 5])  # Orientation Damping
+
+        self._quat_d = Rotation.from_quat(start_orientation)
+        self._omega_c = np.array([0.0, 0.0, 0.0])
+        self._quat_c = Rotation.from_quat(start_orientation)
+
+        self._omega_e = np.array([0.0, 0.0, 0.0])
+        self._quat_e = Rotation.from_quat([1.0, 0.0, 0.0, 0.0])
 
 
     def admittance(self, target):
@@ -304,30 +325,24 @@ class AdmittanceController(OperationalSpaceController):
 
         if self.contact:
             self.Xc = self.data.site_xpos[self.model_names.site_name2id["eef_site"]] # MAYBE end-effector is not the correct position we want here
+            print("Current Position: ", self.Xc)
             Xd = target[:3]
-
+            print("Target Position: ", Xd)
 
             # force, eef_rot_mat = self.force_utils._get_sensor_force()
-
             force = self.force_utils._get_contact_info("box")
-            # force = -1.0 * force
             print("Force", force)
 
-            tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
-
+            # tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
             # surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
             # rot_align = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
             
             # Update gains based on orientation function
-            M = self.M_prev #rot_align @ self.M_prev 
-            K = self.K_prev #rot_align @ self.K_prev
-            D = self.D_prev #rot_align @ self.D_prev
+            # M = self.M_prev #rot_align @ self.M_prev 
+            # K = self.K_prev #rot_align @ self.K_prev
+            # D = self.D_prev #rot_align @ self.D_prev
 
             self.Xe = self.Xc - Xd
-            
-            print("Xc", self.Xc)
-            print("Xd", Xd)
-            # print("Xe", self.Xe)
 
             # Step 1: Calculate acceleration
             self.acc = np.linalg.inv(M) @ (force + self.target_force - D @ self.vel - K @ self.Xe)
@@ -337,18 +352,17 @@ class AdmittanceController(OperationalSpaceController):
             
             # Step 3: Integrate velocity to get position
             self.Xe = self.int_vel(self.vel, self.Xe, self.dt)
-            print("Position update: ", self.Xe)
+            # print("Position update: ", self.Xe)
             
             # Step 4: Update compliant position
             self.Xc = self.Xe + Xd
-            print("Compliant pos: ", self.Xc)
+            print("Compliant Position: ", self.Xc)
 
             # align_quaternion = Rotation.from_matrix(rot_align).as_quat()
-            # print(np.concatenate([self.Xc, align_quaternion])
+
             return np.concatenate([self.Xc, target]) #align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
         else:
             return target
-
 
     def int_acc(self, acc, vel, dt): # Euler integration
         vel = vel + acc * dt
@@ -357,7 +371,45 @@ class AdmittanceController(OperationalSpaceController):
     def int_vel(self, vel, pos, dt): # Euler integration
         pos = pos + vel * dt
         return pos
+    
 
+    def quaternion_to_euler(q):
+        r = Rotation.from_quat(q)
+        euler_angles = r.as_euler('xyz', degrees=True)
+        return euler_angles
+    
+
+    def skew_symmetric(self, vector):
+        x = vector[0]
+        y = vector[1]
+        z = vector[2]
+        Sv = np.zeros((3, 3))
+        Sv[1, 0] = z
+        Sv[2, 0] = -y
+        Sv[0, 1] = -z
+        Sv[2, 1] = x
+        Sv[0, 2] = y
+        Sv[1, 2] = -x
+        return Sv
+    
+
+    def quatExp(self, v):
+        v_norm = np.linalg.norm(v)
+        if v_norm == 0:
+            return np.array([np.cos(v_norm), 0, 0, 0])
+        else:
+            return np.array([np.cos(v_norm), *np.sin(v_norm) * v / v_norm])
+
+
+    def quatmultiply(self, q1, q2):
+        w1, x1, y1, z1 = q1
+        w2, x2, y2, z2 = q2
+        w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+        x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+        y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+        z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        return np.array([w, x, y, z])
+    
 
     def run(
         self, 
@@ -366,18 +418,81 @@ class AdmittanceController(OperationalSpaceController):
     ) -> None:
         
         # TODO: INSERT MAGICAL CODE HERE
-        self.Xc = self.data.site_xpos[self.model_names.site_name2id["eef_site"]] # MAYBE end-effector is not the correct position we want here
+        self._x_c = self.data.site_xpos[self.eef_id]
         eef_quat = mat2quat(self.data.site_xmat[self.eef_id].reshape(3, 3))
-        self.eef_pose = np.concatenate([self.Xc, eef_quat])
-        self.target = target
+        self.actual_pose = np.concatenate([self._x_c, eef_quat])
+        self.target_pose = target
 
-        u = self.admittance(target)
+        self._x_d = target[:3]
+        self._quat_desired = Rotation.from_quat(target[-4:])
+
+        # Get current contact/sensor force
+        # force, eef_rot_mat = self.force_utils._get_sensor_force()
+        force = self.force_utils._get_contact_info("box")
+        torque = self.data.sensordata[-3:]
+
+        # Positional part of the compliance frame
+        # Acceleration error
+        ddx_e = np.linalg.inv(self.M) @ (force - self.K @ self._x_e - self.D @ self._dx_e)
+        # Integrate -> velocity error
+        self._dx_e += ddx_e * self.control_period
+        # Integrate -> position error
+        self._x_e += self._dx_e * self.control_period
+        # Update the position
+        x_c = self._x_d + self._x_e
+
+
+
+        # # Rotational part of the compliance frame
+        # # Angular acceleration error
+        # domega_e = np.linalg.inv(self.Mo) @ (torque - self.Ko @ self._quat_e.as_quat()[1:] - self.Do @ self._omega_e)
+        # # Integrate -> angular velocity error
+        # # Compute q_next
+        # q_next = self.quatmultiply(self.quatExp(0.5 * self.control_period * domega_e), self._quat_e.as_quat())
+
+        # # Normalize q_next
+        # self._quat_e = Rotation.from_quat(q_next / np.linalg.norm(q_next))
+        # self._omega_e = self._omega_e + self.control_period * domega_e
+
+        # # multiply with the desired quaternion
+        # self._quat_c = self._quat_desired.as_quat() + self._quat_e.as_quat()
+        # #quat_c_arr = quaternion.as_float_array(self._quat_c)
+        # rotation_obj = Rotation.from_quat(self._quat_c)
+        # # Convert the rotation object to a rotation vector (Euler angle)
+        # eul_ang = rotation_obj.as_rotvec()
+
+
+        target_quat = target[3:]
+        r = Rotation.from_quat(target_quat)
+        target_eul_ang = r.as_euler('zyx', degrees=True)
+        print(target_eul_ang)
+        u_task = [x_c[0], x_c[1], x_c[2], target_eul_ang[0], target_eul_ang[1], target_eul_ang[2]]
+        #u_task = [x_c[0], x_c[1], x_c[2], eul_ang[0], eul_ang[1], eul_ang[2]]
+
+        J_full = get_site_jac(self.model, self.data, self.eef_id)
+        J = J_full[:, self.jnt_dof_ids]
+        # Compute the joint effort control signal based on the task space control signal
+        #u_task = self.spatial_controller(u_task, self.control_period)
+        u = np.dot(np.linalg.pinv(J), u_task)
+
+
+
+
+
+        # self.Xc = self.data.site_xpos[self.model_names.site_name2id["eef_site"]] # MAYBE end-effector is not the correct position we want here
+        # eef_quat = mat2quat(self.data.site_xmat[self.eef_id].reshape(3, 3))
+        # self.eef_pose = np.concatenate([self.Xc, eef_quat])
+        # self.target = target
+
+        # u = self.admittance(target)
+
 
         # Call the parent class's run method to apply the computed joint efforts to the robot actuators.
-        super().run(u, ctrl)  
+        super().run(u, ctrl)
 
-    def main_target_reached(self):
-        if self.eef_pose is not None and self.target is not None:
-            return max(np.abs(self.eef_pose - self.target)) < self.target_tol
+
+    def target_reached(self):
+        if self.actual_pose is not None and self.target_pose is not None:
+            return max(np.abs(self.actual_pose - self.target_pose)) < self.target_tol
         else:
             return False

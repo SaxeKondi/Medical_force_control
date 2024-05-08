@@ -196,6 +196,7 @@ class MuJocoPyEnv(BaseMujocoEnv):
         )
 
     def _initialize_simulation(self):
+        print(self.fullpath)
         model = mujoco.MjModel.from_xml_path(str(self.fullpath))
         data = mujoco.MjData(model)
         return model, data
