@@ -375,46 +375,8 @@ class AdmittanceController(OperationalSpaceController):
         print("Compliant Position: ", self._x_c)
 
         # return np.concatenate([self._x_c, target[-4:]])
-        return np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
-    
+        return np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])    
 
-    def quaternion_to_euler(q):
-        r = Rotation.from_quat(q)
-        euler_angles = r.as_euler('xyz', degrees=True)
-        return euler_angles
-    
-
-    def skew_symmetric(self, vector):
-        x = vector[0]
-        y = vector[1]
-        z = vector[2]
-        Sv = np.zeros((3, 3))
-        Sv[1, 0] = z
-        Sv[2, 0] = -y
-        Sv[0, 1] = -z
-        Sv[2, 1] = x
-        Sv[0, 2] = y
-        Sv[1, 2] = -x
-        return Sv
-    
-
-    def quatExp(self, v):
-        v_norm = np.linalg.norm(v)
-        if v_norm == 0:
-            return np.array([np.cos(v_norm), 0, 0, 0])
-        else:
-            return np.array([np.cos(v_norm), *np.sin(v_norm) * v / v_norm])
-
-
-    def quatmultiply(self, q1, q2):
-        w1, x1, y1, z1 = q1
-        w2, x2, y2, z2 = q2
-        w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
-        x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
-        y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
-        z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
-        return np.array([w, x, y, z])
-    
 
     def run(
         self, 
@@ -458,3 +420,41 @@ class AdmittanceController(OperationalSpaceController):
         
         u = [self._x_c[0], self._x_c[1], self._x_c[2], self._quat_c[0], self._quat_c[1], self._quat_c[2], self._quat_c[3]]
         return u
+    
+
+    def quaternion_to_euler(q):
+        r = Rotation.from_quat(q)
+        euler_angles = r.as_euler('xyz', degrees=True)
+        return euler_angles
+    
+
+    def skew_symmetric(self, vector):
+        x = vector[0]
+        y = vector[1]
+        z = vector[2]
+        Sv = np.zeros((3, 3))
+        Sv[1, 0] = z
+        Sv[2, 0] = -y
+        Sv[0, 1] = -z
+        Sv[2, 1] = x
+        Sv[0, 2] = y
+        Sv[1, 2] = -x
+        return Sv
+    
+
+    def quatExp(self, v):
+        v_norm = np.linalg.norm(v)
+        if v_norm == 0:
+            return np.array([np.cos(v_norm), 0, 0, 0])
+        else:
+            return np.array([np.cos(v_norm), *np.sin(v_norm) * v / v_norm])
+
+
+    def quatmultiply(self, q1, q2):
+        w1, x1, y1, z1 = q1
+        w2, x2, y2, z2 = q2
+        w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+        x = w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+        y = w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+        z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        return np.array([w, x, y, z])
