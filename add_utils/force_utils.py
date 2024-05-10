@@ -49,17 +49,17 @@ class Force_utils:
 
     def _get_sensor_force(self, site="eef_site") -> np.ndarray:
         """
-        Get the sensor force at the specified site.
+        Get the sensor wrench at the specified site.
 
         Parameters:
             site (str): The name of the site.
 
         Returns:
-            np.ndarray: The sensor force.
+            np.ndarray: The sensor wrench.
         """
         eef_rot_mat = self.data.site_xmat[self.model_names.site_name2id[site]].reshape(3, 3)
-        force = self.data.sensordata[:3]  # only forces
-        return eef_rot_mat @ force, eef_rot_mat # Returns force in world frame
+        wrench = self.data.sensordata
+        return eef_rot_mat @ wrench, eef_rot_mat # Returns wrench in world frame
 
 
     def _obj_in_contact(self, cs, obj1: str, obj2: str) -> bool:
