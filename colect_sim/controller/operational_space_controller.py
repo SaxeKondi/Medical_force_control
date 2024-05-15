@@ -3,7 +3,6 @@ import numpy as np
 from enum import Enum
 from colect_sim.controller.joint_effort_controller import JointEffortController
 from colect_sim.utils.mujoco_utils import get_site_jac, get_fullM
-from colect_sim.utils.transform_utils import mat2quat, quat2mat
 from colect_sim.utils.controller_utils import task_space_inertia_matrix, pose_error
 from colect_sim.utils.mujoco_utils import MujocoModelNames
 from mujoco import MjModel, MjData
@@ -12,6 +11,8 @@ from typing import List
 from add_utils.point_cloud import Point_cloud
 from add_utils.force_utils import Force_utils
 from scipy.spatial.transform import Rotation
+from spatialmath.base import q2r, r2q
+from spatialmath import SE3, SO3
 
 
 class TargetType(Enum):
@@ -108,7 +109,7 @@ class OperationalSpaceController(JointEffortController):
 
         # Get the end-effector position, orientation matrix, and twist (spatial velocity).
         ee_pos = self.data.site_xpos[self.eef_id]
-        ee_quat = mat2quat(self.data.site_xmat[self.eef_id].reshape(3, 3))
+        ee_quat = r2q(self.data.site_xmat[self.eef_id].reshape(3, 3), order="xyzs")
         ee_pose = np.concatenate([ee_pos, ee_quat])
         ee_twist = J @ dq
 
@@ -120,49 +121,6 @@ class OperationalSpaceController(JointEffortController):
 
         # Initialize the task space control signal (desired end-effector motion).
         u_task = np.zeros(6)
-
-
-
-
-        # This is the tool tip position: self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
-        # print(self.data.site_xpos[self.model_names.site_name2id["tcp_site"]])
-
-        ###########################################
-        # Option 1 to get force --> Contact force #
-        ###########################################
-        # force = self.force_utils._get_contact_info("box")
-        # print("The contact force is: ", force)
-
-
-        ##########################################
-        # Option 2 to get force --> Sensor force #
-        ##########################################
-        # force = self.force_utils._get_sensor_force()
-        # print("The sensor force is: ", force)
-
-        # Save force data for further analysis
-        # with open('wrench_data.txt', 'a') as file:
-        #     np.savetxt(file, [force], fmt='%f')  # fmt
-
-
-        #############################################################
-        # Only get force if in contact and get alignment rot matrix #
-        #############################################################
-        # is_in_contact, _ = self.force_utils._is_in_contact("softbody") # obj options: "softbody" or "box"
-
-        # if is_in_contact:
-        #     force, eef_rot_mat = self.force_utils._get_sensor_force()
-        #     force = -1.0 * force
-
-        #     tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
-        #     surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
-
-        #     # print(self.data.site_xmat[self.model_names.site_name2id["eef_site"]].reshape(3,3))
-
-        #     new_eef_rot_mat = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
-        #     # print(new_eef_rot_mat)
-
-
 
         if self.target_type == TargetType.POSE:
             # If the target type is pose, the target contains both position and orientation.
@@ -283,7 +241,7 @@ class AdmittanceController(OperationalSpaceController):
         m = 1
         kenv = 20000 # 5000 for softbody
         kd = 250 # 1
-        k = 5 #4/m * kd - kenv
+        k = 50000 #4/m * kd - kenv
 
         self.M = np.array([[m,0,0],[0,m,0],[0,0,m]])
         self.K = np.array([[k,0,0],[0,k,0],[0,0,0]])
@@ -292,6 +250,7 @@ class AdmittanceController(OperationalSpaceController):
         self._x_d = start_position
         
         #Initial conditions:
+        self._x_d = np.array([0.0, 0.0, 0.0])
         self._dc_c = np.array([0.0, 0.0, 0.0])
         self._x_e = np.array([0.0, 0.0, 0.0])
         self._dx_e = np.array([0.0, 0.0, 0.0])
@@ -300,7 +259,6 @@ class AdmittanceController(OperationalSpaceController):
         self.point_cloud = Point_cloud()
         self.force_utils = Force_utils(self.model, self.data, self.model_names)
 
-        self.contact = False
 
         ##########################
         # For orientational part #
@@ -319,41 +277,37 @@ class AdmittanceController(OperationalSpaceController):
 
     def admittance(self, target):
         eef_rot_mat = self.data.site_xmat[self.eef_id].reshape(3, 3)
-        eef_quat = mat2quat(eef_rot_mat)
+        eef_quat = r2q(eef_rot_mat)
         self.actual_pose = np.concatenate([self.data.site_xpos[self.eef_id], eef_quat])
         self.target_pose = target
 
         self._x_d = target[:3]
 
         # Check for contact
-        is_in_contact, _ = self.force_utils._is_in_contact("box") # obj options: "softbody" or "box"
+        force, rot_contact, is_in_contact = self.force_utils._get_contact_info("belly") # obj options: "softbody" or "box"
 
         if is_in_contact:
-            self.target_force = np.array([0.0, 0.0, -2.0]) # Direction in base-frame
-            self.contact = True
+            self.target_force = np.array([0.0, 0.0, -5.0])
+            # target_force_frame = SE3.Rt(eef_rot_mat, [1,1,1]) * SE3.Rt(np.eye(3), self.target_force) # Direction in base-frame
+            # self.target_force = target_force_frame.t
+            # print("Target force: ", self.target_force)
 
-        # Get current contact/sensor force
-        # force, eef_rot_mat = self.force_utils._get_sensor_force()
-        wrench = self.force_utils._get_contact_info("box") # obj options: "softbody" or "box"
-        force = wrench[:3]
-
-        if self.contact:
             tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
-            print("Current Rotation: ", eef_rot_mat)
-            surface_normal = np.array([0, 0, 1])# self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
-            rot_align = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
 
-            print("Alignment Rotation: ", rot_align)
-            # Convert alignment rotation matrix to quaternion
-            align_quaternion = Rotation.from_matrix(rot_align).as_quat()
-        else:
-            align_quaternion = target[-4:]
+            surface_normal = np.array([0, 0, 1])
+            # surface_normal = rot_contact[:, 0]
+            # surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
+            # self.align_rot_matrix = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
+
+            self.align_rot_matrix = self.force_utils._rotation_matrix_to_align_z_to_direction(rot_contact[:, 0])
+            target[-4:] = r2q(np.asarray(self.align_rot_matrix))
+        
+        align_quaternion = target[-4:]
         
         # Update gains based on orientation function
         # self.M = rot_align @ self.M
         # self.K = rot_align @ self.K
         # self.D = rot_align @ self.D
-
 
         # Positional part of the admittance controller
         # Step 1: Acceleration error
@@ -375,7 +329,7 @@ class AdmittanceController(OperationalSpaceController):
         print("Compliant Position: ", self._x_c)
 
         # return np.concatenate([self._x_c, target[-4:]])
-        return np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])    
+        return np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
 
 
     def run(

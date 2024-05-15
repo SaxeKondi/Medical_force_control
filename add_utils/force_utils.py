@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation
 import mujoco as mj
+from spatialmath import SE3, SO3
 
 
 class Force_utils:
@@ -32,19 +33,15 @@ class Force_utils:
         Returns:
             numpy.array: The new orientation rotation matrix where the end effector's x-axis aligns with the surface normal.
         """
-        # Compute rotation axis
-        rotation_axis = np.cross(eef_rot_matrix[0], surface_normal)
-        rotation_axis /= np.linalg.norm(rotation_axis)
-
-        # Compute rotation angle
-        dot_product = np.dot(eef_rot_matrix[0], surface_normal)
-        rotation_angle = np.arccos(dot_product)
+        z_axis = np.array([-1, 0, 0])
+        rotation_axis = np.cross(z_axis, surface_normal)
+        rotation_angle = np.arccos(np.dot(z_axis, surface_normal))
 
         # Construct rotation matrix
         rotation_matrix = Rotation.from_rotvec(rotation_angle * rotation_axis).as_matrix()
 
         # Apply rotation matrix
-        return np.dot(rotation_matrix, eef_rot_matrix)
+        return rotation_matrix
 
 
     def _get_sensor_force(self, site="eef_site") -> np.ndarray:
@@ -82,6 +79,9 @@ class Force_utils:
         elif obj1 == "box":
             ob1_id = 34
             ob2_id = self.model.geom("prop").id
+        elif obj1 == "belly":
+            ob1_id = 34
+            ob2_id = self.model.geom("belly").id
         obj_ids = [ob1_id, ob2_id]
 
         if all(elem in cs_ids for elem in obj_ids):
@@ -120,14 +120,14 @@ class Force_utils:
         Returns:
             np.ndarray: Numpy array containing the force and torques.
         """
-        is_in_contact, cs_i = self._is_in_contact(obj1, obj2)
+        is_in_contact, cs_i = self._is_in_contact(obj1)
 
         if is_in_contact:
             wrench = self._get_cs(cs_i)
             contact_frame = self.data.contact[cs_i].frame.reshape((3, 3)).T
-            return contact_frame @ wrench[:3]
+            return contact_frame @ wrench[:3], contact_frame, True
         else:
-            return np.zeros(3, dtype=np.float64)
+            return np.zeros(3, dtype=np.float64), np.zeros([3, 3], dtype=np.float64), False
 
 
     def _get_cs(self, i: int) -> list[float]:
@@ -143,3 +143,37 @@ class Force_utils:
         c_array = np.zeros(6, dtype=np.float64)
         mj.mj_contactForce(self.model, self.data, i, c_array)
         return c_array
+
+
+    def get_ee_transformation(self, rot, ee_position, desired_rot):
+        z_direction = rot[:, -1]
+        z_offset = .15175
+        tool_position = ee_position + z_direction * z_offset 
+        rotated_tool_pose = SE3.Rt(desired_rot, tool_position)
+        rotated_z = rotated_tool_pose.R[:, -1]
+        ee_new_pos = rotated_tool_pose.t - rotated_z * z_offset
+        return SE3.Rt(desired_rot, ee_new_pos)
+    
+
+    def _rotation_matrix_to_align_z_to_direction(self, direction):
+        # Normalize direction vector
+        direction /= np.linalg.norm(direction)
+        # print("normalized force: ", direction)
+
+        # Calculate axis of rotation
+        axis = np.cross([0, 0, 1], direction)
+        axis /= np.linalg.norm(axis)
+
+        # Calculate angle of rotation
+        angle = np.arccos(np.dot([0, 0, 1], direction))
+
+        # Construct rotation matrix using axis-angle representation
+        c = np.cos(angle)
+        s = np.sin(angle)
+        t = 1 - c
+        x, y, z = axis
+        rotation_matrix = np.array([[t*x*x + c, t*x*y - z*s, t*x*z + y*s],
+                                    [t*x*y + z*s, t*y*y + c, t*y*z - x*s],
+                                    [t*x*z - y*s, t*y*z + x*s, t*z*z + c]])
+
+        return np.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]]) @ rotation_matrix

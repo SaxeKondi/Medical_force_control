@@ -87,7 +87,7 @@
     <mesh file="ur5e/HD3L15.stl" scale="0.001 0.001 0.001"/> <!--Scale from mm to m due to STL units-->
     <mesh file="ur5e/us_probe.stl" /> 
     <mesh file="phantom/phantom.stl" /> 
-    <mesh name ="belly" file="phantom/Belly_old.stl" scale= "0.6666 1 1"/>
+    <mesh name ="belly" file="phantom/belly.stl" scale= "1 1 1"/>
   </asset>
 
   <worldbody>
@@ -226,13 +226,13 @@
         </plugin>
     </flexcomp> -->
 
-    <body name="prop">
+    <!-- <body name="prop">
       <geom name="prop" type="box" size="0.09 0.08 0.03" pos=".5 .5 .03" condim="1"/>
-    </body>
-
-    <!-- <body name = "belly" pos = "0.5 0.5 0.0" >
-      <geom name = "belly" type="mesh" mesh="belly"/>
     </body> -->
+
+    <body name = "belly" pos = "0.0 0.5 0.0" >
+      <geom name = "belly" type="mesh" mesh="belly"/>
+    </body>
 
     <!-- Red X-axis -->
     <body name="grid_frame_x" pos="0.6 0.5 0.03"> <!-- Adjust position and orientation -->
