@@ -234,14 +234,14 @@ class AdmittanceController(OperationalSpaceController):
         # )
         self.control_period = control_period
         
-        self.target_tol = 0.005 #0.0075
+        self.target_tol = 0.01 #0.0075
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
         m = 1
         kenv = 20000 # 5000 for softbody
-        kd = 250 # 1
-        k = 50000 #4/m * kd - kenv
+        kd = 2500 # 1
+        k = 500 #4/m * kd - kenv
 
         self.M = np.array([[m,0,0],[0,m,0],[0,0,m]])
         self.K = np.array([[k,0,0],[0,k,0],[0,0,0]])
@@ -299,15 +299,17 @@ class AdmittanceController(OperationalSpaceController):
             # surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
             # self.align_rot_matrix = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
 
-            self.align_rot_matrix = self.force_utils._rotation_matrix_to_align_z_to_direction(rot_contact[:, 0])
+            self.align_rot_matrix = self.force_utils._rotation_matrix_to_align_z_to_direction(-rot_contact[:, 0])
             target[-4:] = r2q(np.asarray(self.align_rot_matrix))
+        else:
+            self.align_rot_matrix = q2r(target[-4:])
         
         align_quaternion = target[-4:]
         
         # Update gains based on orientation function
-        # self.M = rot_align @ self.M
-        # self.K = rot_align @ self.K
-        # self.D = rot_align @ self.D
+        self.M = self.align_rot_matrix @ self.M
+        self.K = self.align_rot_matrix @ self.K
+        self.D = self.align_rot_matrix @ self.D
 
         # Positional part of the admittance controller
         # Step 1: Acceleration error

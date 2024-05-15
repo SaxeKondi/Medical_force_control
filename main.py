@@ -32,14 +32,14 @@ def sample_point_on_mesh(mesh, x, y):
     if len(intersection_info[0]) > 0:
         # If intersection is found, return the intersection point
         intersection_point = intersection_info[0][1]
-        return intersection_point + [0.0, 0.5, 0.15175]
+        return intersection_point + [0.0, 0.5, 0.15]
 
     
 def belly_traj():
     # Define the range of y-coordinates
     # y_range = np.arange(-0.21, 0.22, 0.01)
     x_range = np.arange(-0.2, 0.2, 0.02)
-        
+    
     points = []
 
     for x in x_range:
@@ -94,8 +94,13 @@ def main() -> None:
 
   # traj = linear_traj_w_gauss_noise(traj_start, traj_stop, 100, 0., 0.0005)
   traj = belly_traj()
+  mid_traj_pose = traj[len(traj)//2]
   traj = traj[::-1] # Reverse the array
   traj = traj[len(traj)//2:]
+  print(traj)
+  traj = np.insert(traj, 0, mid_traj_pose + [0, 0, 0.1, 0, 0, 0, 0], axis=0)
+  print(traj)
+
 
   i = 0
   terminated = False
