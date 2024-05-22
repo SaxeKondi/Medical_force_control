@@ -35,7 +35,8 @@ def sample_point_on_mesh(mesh, x, y):
 def belly_traj():
     # Define the range of y-coordinates
     # y_range = np.arange(-0.21, 0.22, 0.01)
-    x_range = np.arange(-0.2, 0.2, 0.02)
+    # x_range = np.arange(-0.2, 0.2, 0.02)
+    x_range = np.arange(-0.16, 0.16, 0.02)
     
     points = []
 
