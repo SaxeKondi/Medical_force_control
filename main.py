@@ -94,13 +94,14 @@ def main() -> None:
   traj = belly_traj()
   traj = traj[::-1] # Reverse the array
   mid_traj_pose = traj[len(traj)//2 - 7]
-  traj = traj[len(traj)//2 - 7: -2]
-  # print(traj)
+  traj = traj[len(traj)//2 - 7:]
+  print(traj)
+  traj = traj[::3]
 
   # traj = np.array([mid_traj_pose, traj[-3]])
   traj = np.insert(traj, 0, mid_traj_pose + [0, 0, 0.1, 0, 0, 0, 0], axis=0)
   # print(traj)
-
+  
 
   i = 0
   terminated = False
@@ -108,7 +109,7 @@ def main() -> None:
       next = traj[i]
       op_target_reached = False
       while not op_target_reached:
-          op_target_reached, terminated = env.step(next, controller_name="admittance") # Controller options: "op_space" or "admittance"
+          op_target_reached, terminated = env.step(next, controller_name="admittance", i = i) # Controller options: "op_space" or "admittance"
       env.enable_recording = False # inelegant, but works for aligning the recording to the target
       i += 1
       if i > len(traj) - 1 : terminated = True

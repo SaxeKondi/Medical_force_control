@@ -233,7 +233,7 @@ class UR5Env(MujocoEnv):
             if elapsed > timeout:
                 print("Timeout while waiting for viewer to start.")
 
-    def step(self, action, controller_name: str ="op_space"):
+    def step(self, action, controller_name: str ="op_space", i = 1):
         if controller_name == "op_space":
             self.controller = self.invdyn_controller
         elif controller_name == "admittance":
@@ -243,7 +243,7 @@ class UR5Env(MujocoEnv):
         ctrl = self.data.ctrl.copy()
         self.controller.run(
             action, 
-            ctrl
+            ctrl, i
         )
         self.do_simulation(ctrl, n_frames=1)
 
