@@ -230,6 +230,26 @@
       <geom name="prop" type="box" size="0.09 0.08 0.03" pos=".5 .5 .03" condim="1"/>
     </body> -->
 
+    <body name="points">
+        <geom type="sphere" size="0.004" pos="0.12000 0.50000 0.33991" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="0.12000 0.50000 0.23991" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="0.10000 0.50000 0.25953" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="0.08000 0.50000 0.27466" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="0.06000 0.50000 0.28604" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="0.04000 0.50000 0.29388" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="0.02000 0.50000 0.29847" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.00000 0.50000 0.30000" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.02000 0.50000 0.29847" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.04000 0.50000 0.29388" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.06000 0.50000 0.28608" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.08000 0.50000 0.27483" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.10000 0.50000 0.25966" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.12000 0.50000 0.23984" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.14000 0.50000 0.21414" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+        <geom type="sphere" size="0.004" pos="-0.16000 0.50000 0.17979" rgba="1 0 0 1" conaffinity="0" contype="0"/>
+    </body>
+
+
     <body name = "belly" pos = "0.0 0.5 0.0" >
       <geom name = "belly" type="mesh" mesh="belly"/>
     </body>

@@ -1,24 +1,31 @@
 import open3d as o3d
 import numpy as np
+import os
 
 # Class that creates a point cloud given the dimensions of a 3D rectangle
 # Includes a function to return the surface normal given a point of interest 
 # based on the closest point in the point cloud
 class Point_cloud:
-    def __init__(self):
+    def __init__(self, stl_file_name = "belly.stl", obj_translate = [0.0, 0.5, 0.0], num_points = 10000):
         # Define dimensions
-        self.width = 0.18 # x       0.41 until 0.59
-        self.height = 0.16 # y     0.42 until 0.58
-        self.depth = 0.06 # z     0.06
-        self.center = [0.5 - self.width/2, 0.5 - self.height/2, 0.03 - self.depth/2]
-        self.nr_points = 10000
+         # Get the directory path of the current Python script
+        script_dir = os.path.dirname(__file__)
 
-        # Create the box mesh
-        box_mesh = o3d.geometry.TriangleMesh.create_box(width=self.width, height=self.height, depth=self.depth)
-        box_mesh.translate(self.center)
+        # Navigate to the parent directory of the script
+        parent_dir = os.path.dirname(script_dir)
 
-        # Convert the mesh to a point cloud
-        self.point_cloud = box_mesh.sample_points_poisson_disk(number_of_points=self.nr_points)
+        print(parent_dir)
+
+        # Load OBJ file
+        mesh = o3d.io.read_triangle_mesh(parent_dir + "/scene/meshes/phantom/" + stl_file_name)
+
+        # Convert to point cloud
+        self.point_cloud = mesh.sample_points_uniformly(number_of_points=num_points)
+
+        # Translate point cloud
+        self.point_cloud.translate(obj_translate)
+
+        # Estimate surface normals pointing away from the object surface (not inside)
         self.point_cloud.estimate_normals()
 
         # Create kd tree for nearest neighbor search
