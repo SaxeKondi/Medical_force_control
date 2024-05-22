@@ -6,7 +6,7 @@ import os
 # Includes a function to return the surface normal given a point of interest 
 # based on the closest point in the point cloud
 class Point_cloud:
-    def __init__(self, stl_file_name = "Belly.stl", obj_translate = [0.0, 0.5, 0.0], num_points = 10000):
+    def __init__(self, stl_file_name = "belly.stl", obj_translate = [0.0, 0.5, 0.0], num_points = 10000):
         # Define dimensions
          # Get the directory path of the current Python script
         script_dir = os.path.dirname(__file__)

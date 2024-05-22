@@ -239,8 +239,8 @@ class AdmittanceController(OperationalSpaceController):
         # )
         self.control_period = control_period
         
-        self.target_tol_pos = 0.002 #0.0075
-        self.target_tol_quat = 0.0025
+        self.target_tol_pos = 0.005 #0.0075
+        self.target_tol_quat = 0.005
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
