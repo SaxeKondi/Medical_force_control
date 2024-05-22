@@ -10,6 +10,7 @@ from typing import List
 
 from add_utils.point_cloud import Point_cloud
 from add_utils.force_utils import Force_utils
+from add_utils.transform_utils import Transform_utils
 from scipy.spatial.transform import Rotation
 from spatialmath.base import q2r, r2q
 from spatialmath import SE3, SO3
@@ -234,18 +235,18 @@ class AdmittanceController(OperationalSpaceController):
         # )
         self.control_period = control_period
         
-        self.target_tol = 0.005 #0.0075
+        self.target_tol = 0.01 #0.0075
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
         m = 1
         kenv = 20000 # 5000 for softbody
-        kd = 250 # 1
-        k = 50000 #4/m * kd - kenv
+        kd = 2500 # 1
+        k = 100000 #4/m * kd - kenv
 
-        self.M = np.array([[m,0,0],[0,m,0],[0,0,m]])
-        self.K = np.array([[k,0,0],[0,k,0],[0,0,0]])
-        self.D = np.array([[kd,0,0],[0,kd,0],[0,0,kd]])
+        self.M_tcp = np.array([[m,0,0],[0,m,0],[0,0,m]])
+        self.K_tcp = np.array([[k,0,0],[0,k,0],[0,0,0]])
+        self.D_tcp = np.array([[kd,0,0],[0,kd,0],[0,0,kd]])
 
         self._x_d = start_position
         
@@ -258,6 +259,7 @@ class AdmittanceController(OperationalSpaceController):
 
         self.point_cloud = Point_cloud()
         self.force_utils = Force_utils(self.model, self.data, self.model_names)
+        self.transform_utils = Transform_utils(self.model, self.data, self.model_names)
 
 
         ##########################
@@ -276,9 +278,9 @@ class AdmittanceController(OperationalSpaceController):
 
 
     def admittance(self, target):
-        eef_rot_mat = self.data.site_xmat[self.eef_id].reshape(3, 3)
-        eef_quat = r2q(eef_rot_mat)
-        self.actual_pose = np.concatenate([self.data.site_xpos[self.eef_id], eef_quat])
+        tcp_rot_mat = self.data.site_xmat[self.model_names.site_name2id["tcp_site"]].reshape(3, 3)
+        tcp_quat = r2q(tcp_rot_mat)
+        self.actual_pose = np.concatenate([self.data.site_xpos[self.model_names.site_name2id["tcp_site"]], tcp_quat])
         self.target_pose = target
 
         self._x_d = target[:3]
@@ -294,24 +296,30 @@ class AdmittanceController(OperationalSpaceController):
 
             tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
 
-            surface_normal = np.array([0, 0, 1])
+            # surface_normal = np.array([0, 0, 1])
             # surface_normal = rot_contact[:, 0]
-            # surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
-            # self.align_rot_matrix = self.force_utils.align_with_surface_normal(eef_rot_mat, surface_normal)
+            surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
+            self.align_rot_matrix = self.force_utils.align_with_surface_normal(surface_normal)
 
-            self.align_rot_matrix = self.force_utils._rotation_matrix_to_align_z_to_direction(rot_contact[:, 0])
-            target[-4:] = r2q(np.asarray(self.align_rot_matrix))
+            # self.align_rot_matrix = self.force_utils._rotation_matrix_to_align_z_to_direction(-rot_contact[:, 0])
+            print(self.align_rot_matrix)
+
+            target[-4:] = r2q(np.asarray(self.align_rot_matrix), order="xyzs")
+            # target[-4:] = r2q(np.asarray(self.align_rot_matrix))
+        else:
+            self.align_rot_matrix = q2r(target[-4:], order="xyzs")
+            # self.align_rot_matrix = q2r(target[-4:])
         
         align_quaternion = target[-4:]
         
         # Update gains based on orientation function
-        # self.M = rot_align @ self.M
-        # self.K = rot_align @ self.K
-        # self.D = rot_align @ self.D
+        self.M = self.align_rot_matrix @ self.M_tcp ########################
+        self.K = self.align_rot_matrix @ self.K_tcp ########################
+        self.D = self.align_rot_matrix @ self.D_tcp ########################
 
         # Positional part of the admittance controller
         # Step 1: Acceleration error
-        ddx_e = np.linalg.inv(self.M) @ (force + self.target_force - self.K @ self._x_e - self.D @ self._dx_e)
+        ddx_e = np.linalg.inv(self.M) @ (-force + self.target_force - self.K @ self._x_e - self.D @ self._dx_e)
 
         # Step 2: Integrate -> velocity error
         self._dx_e += ddx_e * self.control_period # Euler integration
@@ -322,14 +330,15 @@ class AdmittanceController(OperationalSpaceController):
         # Step 4: Update the position
         self._x_c = self._x_d + self._x_e
 
-        print("Current Position: ", self.data.site_xpos[self.eef_id])
+        print("Current Position: ", self.data.site_xpos[self.model_names.site_name2id["tcp_site"]])
         print("Desired Position: ", self._x_d)
-        print("Force: ", force)
+        print("Force: ", -force)
         # print("Position error: ", self._x_e)
         print("Compliant Position: ", self._x_c)
 
         # return np.concatenate([self._x_c, target[-4:]])
-        return np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
+        print(self.transform_utils.tcp2eef(self._x_c, align_quaternion))
+        return self.transform_utils.tcp2eef(self._x_c, align_quaternion) #np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
 
 
     def run(

@@ -22,7 +22,7 @@ class Force_utils:
         self.data = data
         self.model_names = model_names
 
-    def align_with_surface_normal(self, eef_rot_matrix, surface_normal):
+    def align_with_surface_normal(self, surface_normal):
         """
         Aligns the end effector's x-axis with the surface normal.
 
