@@ -180,12 +180,16 @@ class OperationalSpaceController(JointEffortController):
 
         return self.kv * scale * self.lamb * u_task
     
+    # def target_reached(self):
+    #     if self.actual_pose is not None and self.target_pose is not None:
+    #         return max(np.abs(self.actual_pose - self.target_pose)) < self.target_tol
+    #     else:
+    #         return False
     def target_reached(self):
         if self.actual_pose is not None and self.target_pose is not None:
-            return max(np.abs(self.actual_pose - self.target_pose)) < self.target_tol
+            return (max(np.abs(self.actual_pose[:3] - self.target_pose[:3])) < self.target_tol_pos and max(np.abs(self.actual_pose[-4:] - self.target_pose[-4:])) < self.target_tol_quat)
         else:
             return False
-
 
 class AdmittanceController(OperationalSpaceController):
     def __init__(
@@ -235,14 +239,15 @@ class AdmittanceController(OperationalSpaceController):
         # )
         self.control_period = control_period
         
-        self.target_tol = 0.01 #0.0075
+        self.target_tol_pos = 0.002 #0.0075
+        self.target_tol_quat = 0.0025
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
         m = 1
         kenv = 20000 # 5000 for softbody
-        kd = 2500 # 1
-        k = 100000 #4/m * kd - kenv
+        kd = 1500 # 2500
+        k = 50 # 100 # 4/m * kd - kenv
 
         self.M_tcp = np.array([[m,0,0],[0,m,0],[0,0,m]])
         self.K_tcp = np.array([[k,0,0],[0,k,0],[0,0,0]])
@@ -279,7 +284,7 @@ class AdmittanceController(OperationalSpaceController):
 
     def admittance(self, target):
         tcp_rot_mat = self.data.site_xmat[self.model_names.site_name2id["tcp_site"]].reshape(3, 3)
-        tcp_quat = r2q(tcp_rot_mat)
+        tcp_quat = r2q(tcp_rot_mat, order="xyzs")
         self.actual_pose = np.concatenate([self.data.site_xpos[self.model_names.site_name2id["tcp_site"]], tcp_quat])
         self.target_pose = target
 
@@ -289,7 +294,8 @@ class AdmittanceController(OperationalSpaceController):
         force, rot_contact, is_in_contact = self.force_utils._get_contact_info("belly") # obj options: "softbody" or "box"
 
         if is_in_contact:
-            self.target_force = np.array([0.0, 0.0, -5.0])
+            self.target_tol_pos = 0.015
+            self.target_force = np.array([0.0, 0.0, -15.0])
             # target_force_frame = SE3.Rt(eef_rot_mat, [1,1,1]) * SE3.Rt(np.eye(3), self.target_force) # Direction in base-frame
             # self.target_force = target_force_frame.t
             # print("Target force: ", self.target_force)
@@ -302,7 +308,7 @@ class AdmittanceController(OperationalSpaceController):
             self.align_rot_matrix = self.force_utils.align_with_surface_normal(surface_normal)
 
             # self.align_rot_matrix = self.force_utils._rotation_matrix_to_align_z_to_direction(-rot_contact[:, 0])
-            print(self.align_rot_matrix)
+            # print(self.align_rot_matrix)
 
             target[-4:] = r2q(np.asarray(self.align_rot_matrix), order="xyzs")
             # target[-4:] = r2q(np.asarray(self.align_rot_matrix))
@@ -330,14 +336,17 @@ class AdmittanceController(OperationalSpaceController):
         # Step 4: Update the position
         self._x_c = self._x_d + self._x_e
 
-        print("Current Position: ", self.data.site_xpos[self.model_names.site_name2id["tcp_site"]])
-        print("Desired Position: ", self._x_d)
+        # print("Current Position: ", self.data.site_xpos[self.model_names.site_name2id["tcp_site"]])
+        # print("Desired Position: ", self._x_d)
         print("Force: ", -force)
         # print("Position error: ", self._x_e)
         print("Compliant Position: ", self._x_c)
 
+        print(self.actual_pose)
+        print(self.target_pose)
+
         # return np.concatenate([self._x_c, target[-4:]])
-        print(self.transform_utils.tcp2eef(self._x_c, align_quaternion))
+        # print(self.transform_utils.tcp2eef(self._x_c, align_quaternion))
         return self.transform_utils.tcp2eef(self._x_c, align_quaternion) #np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
 
 
@@ -356,7 +365,7 @@ class AdmittanceController(OperationalSpaceController):
 
     def target_reached(self):
         if self.actual_pose is not None and self.target_pose is not None:
-            return max(np.abs(self.actual_pose - self.target_pose)) < self.target_tol
+            return (max(np.abs(self.actual_pose[:3] - self.target_pose[:3])) < self.target_tol_pos and max(np.abs(self.actual_pose[-4:] - self.target_pose[-4:])) < self.target_tol_quat)
         else:
             return False
 

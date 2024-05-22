@@ -95,12 +95,14 @@ def main() -> None:
 
   # traj = linear_traj_w_gauss_noise(traj_start, traj_stop, 100, 0., 0.0005)
   traj = belly_traj()
-  mid_traj_pose = traj[len(traj)//2]
   traj = traj[::-1] # Reverse the array
-  traj = traj[len(traj)//2:]
-  print(traj)
+  mid_traj_pose = traj[len(traj)//2 - 7]
+  traj = traj[len(traj)//2 - 7: -2]
+  # print(traj)
+
+  # traj = np.array([mid_traj_pose, traj[-3]])
   traj = np.insert(traj, 0, mid_traj_pose + [0, 0, 0.1, 0, 0, 0, 0], axis=0)
-  print(traj)
+  # print(traj)
 
 
   i = 0
@@ -109,7 +111,7 @@ def main() -> None:
       next = traj[i]
       op_target_reached = False
       while not op_target_reached:
-          op_target_reached, terminated = env.step(next.copy(), controller_name="admittance") # Controller options: "op_space" or "admittance"
+          op_target_reached, terminated = env.step(next, controller_name="admittance") # Controller options: "op_space" or "admittance"
       env.enable_recording = False # inelegant, but works for aligning the recording to the target
       i += 1
       if i > len(traj) - 1 : terminated = True
