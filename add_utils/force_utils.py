@@ -161,11 +161,11 @@ class Force_utils:
         # print("normalized force: ", direction)
 
         # Calculate axis of rotation
-        axis = np.cross([0, 0, 1], direction)
+        axis = np.cross([-1, 0, 0], direction)
         axis /= np.linalg.norm(axis)
 
         # Calculate angle of rotation
-        angle = np.arccos(np.dot([0, 0, 1], direction))
+        angle = np.arccos(np.dot([-1, 0, 0], direction))
 
         # Construct rotation matrix using axis-angle representation
         c = np.cos(angle)
@@ -176,4 +176,4 @@ class Force_utils:
                                     [t*x*y + z*s, t*y*y + c, t*y*z - x*s],
                                     [t*x*z - y*s, t*y*z + x*s, t*z*z + c]])
 
-        return np.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]]) @ rotation_matrix
+        return np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]) @ rotation_matrix

@@ -82,8 +82,6 @@ class OperationalSpaceController(JointEffortController):
         self.target_tol = 0.001#0.0075#0.01
         self.actual_wrench = None
 
-        self.point_cloud = Point_cloud()
-        self.force_utils = Force_utils(self.model, self.data, model_names)
 
     def run(self, target: np.ndarray, ctrl: np.ndarray) -> None:
         """
@@ -221,8 +219,8 @@ class AdmittanceController(OperationalSpaceController):
             max_effort,
             target_type=TargetType.POSE,
             kp=400.0,
-            ko=200.0,
-            kv=50.0,
+            ko=400.0,
+            kv=90.0,
             vmax_xyz=2,
             vmax_abg=2,
             null_damp_kv=10,
@@ -239,15 +237,15 @@ class AdmittanceController(OperationalSpaceController):
         # )
         self.control_period = control_period
         
-        self.target_tol_pos = 0.005 #0.0075
-        self.target_tol_quat = 0.005
+        self.target_tol_pos = 0.008 #0.0075
+        self.target_tol_quat = 0.015
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
         m = 1
         kenv = 20000 # 5000 for softbody
-        kd = 1500 # 2500
-        k = 50 # 100 # 4/m * kd - kenv
+        kd = 2000 # 2500
+        k = 10 # 100 # 4/m * kd - kenv
 
         self.M_tcp = np.array([[m,0,0],[0,m,0],[0,0,m]])
         self.K_tcp = np.array([[k,0,0],[0,k,0],[0,0,0]])
@@ -265,7 +263,6 @@ class AdmittanceController(OperationalSpaceController):
         self.point_cloud = Point_cloud()
         self.force_utils = Force_utils(self.model, self.data, self.model_names)
         self.transform_utils = Transform_utils(self.model, self.data, self.model_names)
-
 
         ##########################
         # For orientational part #
@@ -290,20 +287,18 @@ class AdmittanceController(OperationalSpaceController):
 
         self._x_d = target[:3]
 
+        self.target_force = np.matmul(tcp_rot_mat, np.array([-10.0, 0.0, 0.0]))
+
         # Check for contact
         force, rot_contact, is_in_contact = self.force_utils._get_contact_info("belly") # obj options: "softbody" or "box"
 
         if is_in_contact:
-            self.target_tol_pos = 0.015
-            self.target_force = np.array([0.0, 0.0, -15.0])
-            # target_force_frame = SE3.Rt(eef_rot_mat, [1,1,1]) * SE3.Rt(np.eye(3), self.target_force) # Direction in base-frame
-            # self.target_force = target_force_frame.t
-            # print("Target force: ", self.target_force)
+            # self.target_force = np.array([-15.0, 0.0, 0.0])
+            # self.target_force = np.matmul(tcp_rot_mat, np.array([-15.0, 0.0, 0.0]))
 
             tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
 
-            # surface_normal = np.array([0, 0, 1])
-            # surface_normal = rot_contact[:, 0]
+            # surface_normal = -rot_contact[:, 0]
             surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
             self.align_rot_matrix = self.force_utils.align_with_surface_normal(surface_normal)
 
@@ -311,10 +306,8 @@ class AdmittanceController(OperationalSpaceController):
             # print(self.align_rot_matrix)
 
             target[-4:] = r2q(np.asarray(self.align_rot_matrix), order="xyzs")
-            # target[-4:] = r2q(np.asarray(self.align_rot_matrix))
         else:
             self.align_rot_matrix = q2r(target[-4:], order="xyzs")
-            # self.align_rot_matrix = q2r(target[-4:])
         
         align_quaternion = target[-4:]
         
@@ -354,8 +347,10 @@ class AdmittanceController(OperationalSpaceController):
         self, 
         target: np.ndarray,
         ctrl: np.ndarray,
+        i = 0,
     ) -> None:
-        
+        if i == 1:
+            self.target_force = np.array([0.0, 0.0, 0.0])
         # TODO: INSERT MAGICAL CODE HERE
         u = self.admittance(target=target)
 

@@ -231,7 +231,6 @@
     </body> -->
 
     <body name="points">
-        <geom type="sphere" size="0.004" pos="0.12000 0.50000 0.33991" rgba="1 0 0 1" conaffinity="0" contype="0"/>
         <geom type="sphere" size="0.004" pos="0.12000 0.50000 0.23991" rgba="1 0 0 1" conaffinity="0" contype="0"/>
         <geom type="sphere" size="0.004" pos="0.10000 0.50000 0.25953" rgba="1 0 0 1" conaffinity="0" contype="0"/>
         <geom type="sphere" size="0.004" pos="0.08000 0.50000 0.27466" rgba="1 0 0 1" conaffinity="0" contype="0"/>
