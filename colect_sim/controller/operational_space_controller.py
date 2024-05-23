@@ -15,6 +15,8 @@ from scipy.spatial.transform import Rotation
 from spatialmath.base import q2r, r2q
 from spatialmath import SE3, SO3
 
+import os
+
 
 class TargetType(Enum):
     POSE = 0
@@ -264,6 +266,9 @@ class AdmittanceController(OperationalSpaceController):
         self.force_utils = Force_utils(self.model, self.data, self.model_names)
         self.transform_utils = Transform_utils(self.model, self.data, self.model_names)
 
+        # Navigate to the parent directory of the script
+        self.parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
         ##########################
         # For orientational part #
         ##########################
@@ -338,9 +343,10 @@ class AdmittanceController(OperationalSpaceController):
         print(self.actual_pose)
         print(self.target_pose)
 
-        # return np.concatenate([self._x_c, target[-4:]])
-        # print(self.transform_utils.tcp2eef(self._x_c, align_quaternion))
+        with open(self.parent_dir + "/DATA_ROBOT.csv",'a') as fd:
+            fd.write(f'{self.actual_pose[0]},{self.actual_pose[1]},{self.actual_pose[2]},{self.actual_pose[3]},{self.actual_pose[4]},{self.actual_pose[5]},{self.actual_pose[6]}\n')
         return self.transform_utils.tcp2eef(self._x_c, align_quaternion) #np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
+
 
 
     def run(
