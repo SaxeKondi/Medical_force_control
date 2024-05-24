@@ -1,7 +1,7 @@
 from spatialmath import SE3, SO3
 import numpy as np
 from scipy.spatial.transform import Rotation
-from spatialmath.base import q2r, r2q
+from spatialmath.base import q2r, r2q, qisunit, qunit
 
 class Transform_utils:
     """
@@ -22,7 +22,7 @@ class Transform_utils:
         self.model_names = model_names
 
     def tcp2eef(self, pos, quat):
-        T_Base_TCP = SE3.Rt(q2r(quat, order="xyzs"), pos)
+        T_Base_TCP = SE3.Rt(q2r(qunit(quat), order="xyzs"), pos)
         T_TCP_EEF = SE3.Tx(-0.15175)
 
         T_Base_EEF = T_Base_TCP * T_TCP_EEF

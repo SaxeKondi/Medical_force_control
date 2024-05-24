@@ -222,7 +222,7 @@ class AdmittanceController(OperationalSpaceController):
             target_type=TargetType.POSE,
             kp=400.0,
             ko=400.0,
-            kv=90.0,
+            kv=50.0,
             vmax_xyz=2,
             vmax_abg=2,
             null_damp_kv=10,
@@ -246,11 +246,11 @@ class AdmittanceController(OperationalSpaceController):
         # Gain matrices
         m = 1
         kenv = 20000 # 5000 for softbody
-        kd = 2000 # 2500
+        kd = 3000 # 2500
         k = 10 # 100 # 4/m * kd - kenv
 
         self.M_tcp = np.array([[m,0,0],[0,m,0],[0,0,m]])
-        self.K_tcp = np.array([[k,0,0],[0,k,0],[0,0,0]])
+        self.K_tcp = np.array([[0,0,0],[0,k,0],[0,0,k]])
         self.D_tcp = np.array([[kd,0,0],[0,kd,0],[0,0,kd]])
 
         self._x_d = start_position
@@ -284,7 +284,7 @@ class AdmittanceController(OperationalSpaceController):
         # self._quat_e = Rotation.from_quat([1.0, 0.0, 0.0, 0.0])
 
 
-    def admittance(self, target):
+    def admittance(self, target, i):
         tcp_rot_mat = self.data.site_xmat[self.model_names.site_name2id["tcp_site"]].reshape(3, 3)
         tcp_quat = r2q(tcp_rot_mat, order="xyzs")
         self.actual_pose = np.concatenate([self.data.site_xpos[self.model_names.site_name2id["tcp_site"]], tcp_quat])
@@ -292,7 +292,11 @@ class AdmittanceController(OperationalSpaceController):
 
         self._x_d = target[:3]
 
-        self.target_force = np.matmul(tcp_rot_mat, np.array([-10.0, 0.0, 0.0]))
+        if i == 0:
+            self.target_force = np.matmul(tcp_rot_mat, np.array([0.0, 0.0, 0.0]))
+        else:
+            self.target_force = np.matmul(tcp_rot_mat, np.array([200.0, 0.0, 0.0])) # 10
+        print("Target force: ", self.target_force)
 
         # Check for contact
         force, rot_contact, is_in_contact = self.force_utils._get_contact_info("belly") # obj options: "softbody" or "box"
@@ -317,12 +321,26 @@ class AdmittanceController(OperationalSpaceController):
         align_quaternion = target[-4:]
         
         # Update gains based on orientation function
-        self.M = self.align_rot_matrix @ self.M_tcp ########################
-        self.K = self.align_rot_matrix @ self.K_tcp ########################
-        self.D = self.align_rot_matrix @ self.D_tcp ########################
+        # self.M = self.align_rot_matrix @ self.M_tcp ########################
+        # self.K = self.align_rot_matrix @ self.K_tcp ########################
+        # self.D = self.align_rot_matrix @ self.D_tcp ########################
+
+        # print(tcp_rot_mat)
+        
+        self.M = tcp_rot_mat @ self.M_tcp ########################
+        self.K = tcp_rot_mat @ self.K_tcp ########################
+        self.D = tcp_rot_mat @ self.D_tcp ########################
+
+        # self.M = self.M_tcp
+        # self.K = self.K_tcp
+        # self.D = self.D_tcp
+
+        # print(self.K)
+        # print(self.K_tcp)
 
         # Positional part of the admittance controller
         # Step 1: Acceleration error
+        print(- self.K @ self._x_e - self.D @ self._dx_e)
         ddx_e = np.linalg.inv(self.M) @ (-force + self.target_force - self.K @ self._x_e - self.D @ self._dx_e)
 
         # Step 2: Integrate -> velocity error
@@ -343,9 +361,9 @@ class AdmittanceController(OperationalSpaceController):
         print(self.actual_pose)
         print(self.target_pose)
 
-        with open(self.parent_dir + "/DATA_ROBOT.csv",'a') as fd:
-            fd.write(f'{self.actual_pose[0]},{self.actual_pose[1]},{self.actual_pose[2]},{self.actual_pose[3]},{self.actual_pose[4]},{self.actual_pose[5]},{self.actual_pose[6]}\n')
-        return self.transform_utils.tcp2eef(self._x_c, align_quaternion) #np.array([self._x_c[0], self._x_c[1], self._x_c[2], align_quaternion[0], align_quaternion[1], align_quaternion[2], align_quaternion[3]])
+        # with open(self.parent_dir + "/DATA_ROBOT.csv",'a') as fd:
+        #     fd.write(f'{self.actual_pose[0]},{self.actual_pose[1]},{self.actual_pose[2]},{self.actual_pose[3]},{self.actual_pose[4]},{self.actual_pose[5]},{self.actual_pose[6]}\n')
+        return self.transform_utils.tcp2eef(self._x_c, align_quaternion)
 
 
 
@@ -355,10 +373,8 @@ class AdmittanceController(OperationalSpaceController):
         ctrl: np.ndarray,
         i = 0,
     ) -> None:
-        if i == 1:
-            self.target_force = np.array([0.0, 0.0, 0.0])
         # TODO: INSERT MAGICAL CODE HERE
-        u = self.admittance(target=target)
+        u = self.admittance(target, i)
 
         # Call the parent class's run method to apply the computed joint efforts to the robot actuators.
         super().run(u, ctrl)
