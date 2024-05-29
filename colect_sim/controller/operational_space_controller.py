@@ -240,17 +240,17 @@ class AdmittanceController(OperationalSpaceController):
         self.control_period = control_period
         
         self.target_tol_pos = 0.008 #0.0075
-        self.target_tol_quat = 0.015
+        self.target_tol_quat = 0.02
         # TODO: INSERT MAGICAL CODE HERE
 
         # Gain matrices
         m = 1
-        kenv = 20000 # 5000 for softbody
-        kd = 3000 # 2500
+        kd = 2500 # 2500
         k = 10 # 100 # 4/m * kd - kenv
 
         self.M_tcp = np.array([[m,0,0],[0,m,0],[0,0,m]])
         self.K_tcp = np.array([[0,0,0],[0,k,0],[0,0,k]])
+        # self.K_tcp = np.array([[k,0,0],[0,k,0],[0,0,0]])
         self.D_tcp = np.array([[kd,0,0],[0,kd,0],[0,0,kd]])
 
         self._x_d = start_position
@@ -295,24 +295,18 @@ class AdmittanceController(OperationalSpaceController):
         if i == 0:
             self.target_force = np.matmul(tcp_rot_mat, np.array([0.0, 0.0, 0.0]))
         else:
-            self.target_force = np.matmul(tcp_rot_mat, np.array([200.0, 0.0, 0.0])) # 10
-        print("Target force: ", self.target_force)
+            self.target_force = np.matmul(tcp_rot_mat, np.array([20.0, 0.0, 0.0])) # 10
+            # self.target_force = np.array([0,0,-11])
+        # print("Target force: ", self.target_force)
 
         # Check for contact
-        force, rot_contact, is_in_contact = self.force_utils._get_contact_info("belly") # obj options: "softbody" or "box"
+        force, _, is_in_contact = self.force_utils._get_contact_info("belly") # obj options: "softbody" or "box" or "belly"
 
         if is_in_contact:
-            # self.target_force = np.array([-15.0, 0.0, 0.0])
-            # self.target_force = np.matmul(tcp_rot_mat, np.array([-15.0, 0.0, 0.0]))
-
             tool_tip_pos = self.data.site_xpos[self.model_names.site_name2id["tcp_site"]]
 
-            # surface_normal = -rot_contact[:, 0]
             surface_normal = self.point_cloud.get_surface_normal(tool_tip_point=tool_tip_pos, print_normal=False)
             self.align_rot_matrix = self.force_utils.align_with_surface_normal(surface_normal)
-
-            # self.align_rot_matrix = self.force_utils._rotation_matrix_to_align_z_to_direction(-rot_contact[:, 0])
-            # print(self.align_rot_matrix)
 
             target[-4:] = r2q(np.asarray(self.align_rot_matrix), order="xyzs")
         else:
@@ -326,6 +320,7 @@ class AdmittanceController(OperationalSpaceController):
         # self.D = self.align_rot_matrix @ self.D_tcp ########################
 
         # print(tcp_rot_mat)
+        # print(tcp_rot_mat.T)
         
         self.M = tcp_rot_mat @ self.M_tcp ########################
         self.K = tcp_rot_mat @ self.K_tcp ########################
@@ -337,10 +332,10 @@ class AdmittanceController(OperationalSpaceController):
 
         # print(self.K)
         # print(self.K_tcp)
+        # print(self.D)
 
         # Positional part of the admittance controller
         # Step 1: Acceleration error
-        print(- self.K @ self._x_e - self.D @ self._dx_e)
         ddx_e = np.linalg.inv(self.M) @ (-force + self.target_force - self.K @ self._x_e - self.D @ self._dx_e)
 
         # Step 2: Integrate -> velocity error
@@ -354,15 +349,15 @@ class AdmittanceController(OperationalSpaceController):
 
         # print("Current Position: ", self.data.site_xpos[self.model_names.site_name2id["tcp_site"]])
         # print("Desired Position: ", self._x_d)
-        print("Force: ", -force)
+        # print("Force: ", -force)
         # print("Position error: ", self._x_e)
-        print("Compliant Position: ", self._x_c)
+        # print("Compliant Position: ", self._x_c)
 
-        print(self.actual_pose)
-        print(self.target_pose)
+        # print(self.actual_pose)
+        # print(self.target_pose)
 
-        # with open(self.parent_dir + "/DATA_ROBOT.csv",'a') as fd:
-        #     fd.write(f'{self.actual_pose[0]},{self.actual_pose[1]},{self.actual_pose[2]},{self.actual_pose[3]},{self.actual_pose[4]},{self.actual_pose[5]},{self.actual_pose[6]}\n')
+        with open(self.parent_dir + "/DATA_ROBOT.csv",'a') as fd:
+            fd.write(f'{self.actual_pose[0]},{self.actual_pose[1]},{self.actual_pose[2]},{self.actual_pose[3]},{self.actual_pose[4]},{self.actual_pose[5]},{self.actual_pose[6]},{force[0]},{force[1]},{force[2]},{self.target_force[0]},{self.target_force[1]},{self.target_force[2]}\n')
         return self.transform_utils.tcp2eef(self._x_c, align_quaternion)
 
 

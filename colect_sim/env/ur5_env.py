@@ -30,7 +30,7 @@ class UR5Env(MujocoEnv):
             "rgb_array",
             "depth_array",
         ],
-        "render_fps": 1000, # Basically no fps limit
+        "render_fps": 10, # Basically no fps limit
     }
 
     def __init__(

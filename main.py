@@ -59,9 +59,9 @@ def belly_traj():
 def main() -> None:
     env = UR5Env()
 
-    # quat = np.array([0,1,0,1]) # in z direction
+    quat = np.array([0,1,0,1]) # in z direction
     # quat = np.array([0,0,0,1]) # in x direction # rot = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-    quat = np.array([0,1,0,0]) # in -x direction # rot = np.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]])
+    # quat = np.array([0,1,0,0]) # in -x direction # rot = np.array([[-1, 0, 0], [0, -1, 0], [0, 0, 1]])
     # quat = np.array([0.00000, 0.00000, 0.5, 1.11803]) # in x-y direction # rot = np.array([[1, -1, 0], [1, 1, 0], [0, 0, 1]])
     # quat = np.array([-0.25, 0.55902, 0.55902, 1.25]) # in x-y-z direction # rot = np.array([[1, -1, 1], [1, 1, 1], [-1, 0, 1]])
     quat = quat / np.linalg.norm(quat)
@@ -92,14 +92,14 @@ def main() -> None:
     # traj_stop = np.array([0.5, 0.25, 0.15175,quat[0],quat[1],quat[2],quat[3]])
 
     # Move in -x direction
-    traj_start = np.array([-0.5, -0.25, 0.625,quat[0],quat[1],quat[2],quat[3]])
-    traj_stop = np.array([-0.5, -0.25, 0.15175,quat[0],quat[1],quat[2],quat[3]])  
+    # traj_start = np.array([-0.5, -0.25, 0.625,quat[0],quat[1],quat[2],quat[3]])
+    # traj_stop = np.array([-0.5, -0.25, 0.15175,quat[0],quat[1],quat[2],quat[3]])  
     
     #############
 
     # Move in pos x direction
-    # traj_start = np.array([0.35, 0.45, 0.21 - 0.15175,quat[0],quat[1],quat[2],quat[3]])
-    # traj_stop = np.array([0.5, 0.45, 0.21 - 0.15175,quat[0],quat[1],quat[2],quat[3]])
+    traj_start = np.array([0.39, 0.45, 0.215 - 0.15175,quat[0],quat[1],quat[2],quat[3]])
+    traj_stop = np.array([0.55, 0.45, 0.215 - 0.15175,quat[0],quat[1],quat[2],quat[3]])
 
     # Move in neg x direction
     # traj_start = np.array([0.68, 0.45, 0.21,quat[0],quat[1],quat[2],quat[3]])
@@ -109,17 +109,16 @@ def main() -> None:
     # traj_start = np.array([0.5, 0.35, 0.21,quat[0],quat[1],quat[2],quat[3]])
     # traj_stop = np.array([0.5, 0.45, 0.21,quat[0],quat[1],quat[2],quat[3]])
 
-    traj = linear_traj_w_gauss_noise(traj_start, traj_stop, 100, 0., 0.0005)
-    # traj = belly_traj()
-    # traj = traj[::-1] # Reverse the array
-    # mid_traj_pose = traj[len(traj)//2 - 7]
-    # traj = traj[len(traj)//2 - 7:]
-    # # print(traj)
-    # traj = traj[::2]
+    # traj = linear_traj_w_gauss_noise(traj_start, traj_stop, 100, 0., 0.0005)
+    traj = belly_traj()
+    traj = traj[::-1] # Reverse the array
+    mid_traj_pose = traj[len(traj)//2 - 7]
+    traj = traj[len(traj)//2 - 7:]
+    # print(traj)
+    traj = traj[::2]
 
-    # traj = np.array([mid_traj_pose + [0, 0, 0.1, 0, 0, 0, 0], mid_traj_pose, traj[-2]])
-    # # traj = np.insert(traj, 0, mid_traj_pose + [0, 0, 0.1, 0, 0, 0, 0], axis=0)
-    # # print(traj)
+    # # traj = np.array([mid_traj_pose + [0, 0, 0.1, 0, 0, 0, 0], mid_traj_pose, traj[-2]])
+    traj = np.insert(traj, 0, mid_traj_pose + [0, 0, 0.1, 0, 0, 0, 0], axis=0)
 
 
     i = 0
